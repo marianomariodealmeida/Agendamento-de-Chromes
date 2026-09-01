@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agendamento de Chromebooks</title>
+  
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --ink: #17352e;
+      --paper: #f4f1e8;
+      --cream: #fffdf7;
+      --line: #d8d5c8;
+      --a: #dd6a3c;
+      --b: #277a74;
+      --c: #d5a52a;
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: "DM Sans", sans-serif; color: var(--ink); }
+    .display-font { font-family: "Fraunces", serif; }
+    .booking-app { width: 100%; min-height: 100vh; }
+    
+    .paper-grid {
+      background-image: linear-gradient(rgba(23,53,46,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23,53,46,.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .week-grid {
+      display: grid;
+      grid-template-columns: 76px repeat(5, minmax(142px, 1fr));
+      min-width: 805px;
+    }
+    .time-cell, .day-head, .calendar-cell {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .day-head { min-height: 70px; }
+    .time-cell { min-height: 86px; }
+    .calendar-cell { min-height: 86px; padding: 7px; }
+    .calendar-cell:nth-child(6n) { border-right: none; }
+    .week-grid > :nth-child(-n+6) { border-top: none; }
+    
+    .booking-card {
+      border-left: 4px solid;
+      border-radius: 8px;
+      padding: 7px 8px;
+      font-size: 11px;
+      line-height: 1.25;
+      box-shadow: 0 2px 0 rgba(23,53,46,.08);
+      cursor: default;
+      margin-bottom: 4px;
+    }
+    .cart-a { background: #fff0e9; border-color: var(--a); color: #753119; }
+    .cart-b { background: #e8f5f2; border-color: var(--b); color: #14504b; }
+    .cart-c { background: #fff7d9; border-color: var(--c); color: #6d5110; }
+    
+    .reveal { animation: reveal .55s ease both; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    
+    input, select { accent-color: var(--b); }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid #dd6a3c;
+      outline-offset: 2px;
+    }
+    @media (max-width: 768px) {
+      .booking-app { min-width: 100%; }
+    }
+  </style>
+</head>
+<body class="booking-app paper-grid bg-[#f4f1e8]">
+  
+  <!-- CABEÇALHO -->
+  <header class="w-full border-b px-5 py-6 md:px-10 bg-[#f4f1e8]" style="border-color:#d8d5c8;">
+    <div class="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-start gap-4">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white" style="background:#17352e;">
+          <i data-lucide="laptop" width="25" height="25"></i>
+        </div>
+        <div>
+          <p class="mb-1 text-xs font-bold uppercase tracking-[0.16em]">Laboratório Móvel</p>
+          <h1 class="display-font text-3xl leading-tight">Agendamento de Chromebooks</h1>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3 items-center">
+        <!-- Botão Suporte -->
+        <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" class="flex items-center gap-2 rounded-xl bg-green-100 text-green-800 px-4 py-2.5 text-sm font-bold shadow-sm transition hover:bg-green-200">
+          <i data-lucide="message-circle" width="18" height="18"></i> Suporte
+        </a>
+        <!-- Botão Login -->
+        <a href="login.html" class="flex items-center gap-2 rounded-xl bg-[#17352e] text-white px-4 py-2.5 text-sm font-bold shadow-sm transition hover:opacity-90">
+          <i data-lucide="shield" width="18" height="18"></i> Acesso Admin
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="w-full px-5 py-7 md:px-10 md:py-9">
+    <div class="mx-auto max-w-7xl">
+      <section class="reveal mb-8 grid gap-6 lg:grid-cols-[1.05fr_1.95fr]">
+        
+        <!-- PAINEL DE NOVA RESERVA -->
+        <aside class="rounded-2xl p-5 shadow-sm md:p-6 bg-[#f4f1e8] border border-[#d8d5c8]">
+          <div class="mb-5">
+            <p class="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-[#dd6a3c]">Nova Reserva</p>
+            <h2 class="display-font text-2xl mb-2">Reserve para sua aula</h2>
+            <p class="text-sm leading-relaxed opacity-80">Escolha a data, o horário e o carrinho que sua turma utilizará.</p>
+          </div>
+          
+          <form id="booking-form" class="space-y-4">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold" for="teacher-name">Seu nome</label>
+              <input id="teacher-name" type="text" required maxlength="80" class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;" placeholder="Prof. João Silva">
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold" for="room">Sala</label>
+              <select id="room" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;">
+                <option value="" disabled selected>Selecione a sala</option>
+                <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option><option>25</option><option>26</option><option>27</option><option>28</option><option>29</option><option>30</option><option>31</option><option>32</option><option>33</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold" for="class-group">Turma</label>
+              <select id="class-group" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;">
+                <option value="" disabled selected>Selecione a turma</option>
+                <option>1º ano do Fundamental</option><option>2º ano do Fundamental</option><option>3º ano do Fundamental</option><option>4º ano do Fundamental</option><option>5º ano do Fundamental</option><option>6º ano do Fundamental</option><option>7º ano do Fundamental</option><option>8º ano do Fundamental</option><option>9º ano do Fundamental</option><option>1º ano do Ensino Médio</option><option>2º ano do Ensino Médio</option><option>3º ano do Ensino Médio</option><option>Contraturno 1</option><option>Contraturno 2</option><option>Contraturno 3</option><option>Contraturno 4</option><option>Contraturno 5</option><option>Contraturno 6</option><option>Contraturno 7</option><option>Contraturno 8</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold" for="section">Seção</label>
+              <select id="section" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;">
+                <option value="" disabled selected>Selecione a seção</option>
+                <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold" for="booking-date">Data</label>
+                <input id="booking-date" type="date" required class="w-full rounded-xl border bg-white px-3 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;">
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold" for="time-slot">Horário</label>
+                <select id="time-slot" required class="w-full rounded-xl border bg-white px-3 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;"></select>
+              </div>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold" for="cart">Carrinho</label>
+              <select id="cart" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;">
+                <option value="" disabled selected>Escolha um carrinho</option>
+                <option>Carrinho A</option>
+                <option>Carrinho B</option>
+                <option>Carrinho C</option>
+              </select>
+            </div>
+            <button id="submit-button" type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 bg-[#dd6a3c] text-white">
+              <i data-lucide="calendar-plus" width="18" height="18"></i>
+              <span>Confirmar agendamento</span>
+            </button>
+          </form>
+          <p id="form-message" class="mt-4 min-h-[1.25rem] text-center text-sm font-medium" role="status" aria-live="polite"></p>
+        </aside>
+
+        <!-- PAINEL DO CALENDÁRIO -->
+        <section class="overflow-hidden rounded-2xl shadow-sm bg-white border border-[#d8d5c8]">
+          <div class="flex flex-col gap-4 border-b p-5 md:flex-row md:items-center md:justify-between md:p-6" style="border-color:#d8d5c8;">
+            <div>
+              <p class="mb-1 text-xs font-bold uppercase tracking-[0.15em] text-[#277a74]">Visão Geral</p>
+              <h2 class="display-font text-2xl">Calendário semanal</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 bg-[#f4f1e8] p-1 rounded-xl border border-[#d8d5c8]">
+              <button id="previous-week" type="button" class="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white">
+                <i data-lucide="chevron-left" width="16" height="16"></i> Anterior
+              </button>
+              <button id="today-button" type="button" class="rounded-lg bg-[#17352e] text-white px-4 py-2 text-sm font-semibold transition hover:opacity-90">
+                Hoje
+              </button>
+              <button id="next-week" type="button" class="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white">
+                Próxima <i data-lucide="chevron-right" width="16" height="16"></i>
+              </button>
+            </div>
+          </div>
+          <div class="px-5 pt-4 md:px-6">
+            <p id="week-range" class="text-sm font-semibold text-[#17352e]" aria-live="polite"></p>
+          </div>
+          <div class="overflow-x-auto p-5 md:p-6">
+            <div id="week-grid" class="week-grid overflow-hidden rounded-xl border bg-white" style="border-color:#d8d5c8;"></div>
+          </div>
+          <footer class="flex flex-wrap gap-3 border-t px-5 py-4 md:px-6" style="border-color:#d8d5c8;">
+            <span class="rounded-full px-3 py-1.5 text-xs font-bold cart-a border">Carrinho A</span>
+            <span class="rounded-full px-3 py-1.5 text-xs font-bold cart-b border">Carrinho B</span>
+            <span class="rounded-full px-3 py-1.5 text-xs font-bold cart-c border">Carrinho C</span>
+          </footer>
+        </section>
+      </section>
+
+      <!-- AVISOS FIXOS -->
+      <section class="rounded-2xl px-5 py-4 md:px-6 bg-[#fff7d9] border border-[#d5a52a] text-[#6d5110]">
+        <div class="flex gap-3">
+          <i data-lucide="alert-triangle" class="mt-0.5 shrink-0" width="20" height="20"></i>
+          <div>
+            <h2 class="mb-1 text-sm font-bold">Regras de Uso</h2>
+            <p class="text-sm leading-relaxed">Cada carrinho possui 45 Chromebooks. Certifique-se de conectar todos os aparelhos na tomada ao final da sua aula para garantir bateria para a próxima turma.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <template id="booking-template">
+    <article class="booking-card" data-template-id="calendar-booking">
+      <strong class="booking-cart block"></strong>
+      <span class="booking-name block mt-1"></span>
+      <span class="booking-class block opacity-80"></span>
+      <span class="booking-location block opacity-80"></span>
+    </article>
+  </template>
+
+  <script>
+    // Configuração do Supabase
+    const supabaseUrl = 'https://bwfumyculbfrmcahsbaz.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    const slots = [
+      "07:00 – 07:45", "07:45 – 08:30", "08:30 – 09:15",
+      "09:35 – 10:20", "10:20 – 11:05", "11:05 – 11:50", "11:50 – 12:35"
+    ];
+    const weekdayNames = ["Seg", "Ter", "Qua", "Qui", "Sex"];
+    let records = [];
+    let activeWeek = startOfWeek(new Date());
+
+    const form = document.getElementById("booking-form");
+    const dateInput = document.getElementById("booking-date");
+    const timeSelect = document.getElementById("time-slot");
+    const message = document.getElementById("form-message");
+    const submitButton = document.getElementById("submit-button");
+
+    slots.forEach(slot => {
+      const option = document.createElement("option");
+      option.value = slot;
+      option.textContent = slot;
+      timeSelect.appendChild(option);
+    });
+
+    function isoDate(date) {
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function startOfWeek(date) {
+      const copy = new Date(date);
+      copy.setHours(12, 0, 0, 0);
+      const day = copy.getDay();
+      copy.setDate(copy.getDate() - (day === 0 ? 6 : day - 1));
+      return copy;
+    }
+
+    function addDays(date, amount) {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + amount);
+      return copy;
+    }
+
+    function formatDate(date) {
+      return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(date);
+    }
+
+    function formatRange() {
+      const end = addDays(activeWeek, 4);
+      const opts = { day: "numeric", month: "long", year: "numeric" };
+      document.getElementById("week-range").textContent =
+        `${activeWeek.toLocaleDateString("pt-BR", opts)} — ${end.toLocaleDateString("pt-BR", opts)}`;
+    }
+
+    function cartClass(cart) {
+      if (cart === "Carrinho A") return "cart-a";
+      if (cart === "Carrinho B") return "cart-b";
+      return "cart-c";
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById("week-grid");
+      grid.replaceChildren();
+      formatRange();
+
+      const emptyCorner = document.createElement("div");
+      emptyCorner.className = "day-head bg-[#f4f1e8]";
+      grid.appendChild(emptyCorner);
+
+      for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
+        const date = addDays(activeWeek, dayIndex);
+        const head = document.createElement("div");
+        head.className = "day-head bg-[#f4f1e8] px-3 py-3 border-b border-[#d8d5c8]";
+        head.innerHTML = `<span class="block text-xs font-bold uppercase tracking-wider text-[#537069]">${weekdayNames[dayIndex]}</span><strong class="mt-1 block text-sm">${formatDate(date)}</strong>`;
+        grid.appendChild(head);
+      }
+
+      slots.forEach(slot => {
+        const slotCell = document.createElement("div");
+        slotCell.className = "time-cell flex items-start bg-[#fdfbf5] px-3 py-3 text-xs font-bold text-[#537069]";
+        slotCell.textContent = slot;
+        grid.appendChild(slotCell);
+
+        for (let dayIndex = 0; dayIndex < 5; dayIndex++) {
+          const dateKey = isoDate(addDays(activeWeek, dayIndex));
+          const cell = document.createElement("div");
+          cell.className = "calendar-cell bg-white hover:bg-gray-50 transition-colors";
+          
+          // Filtra agendamentos reais do Supabase para esta célula
+          const slotBookings = records.filter(record => record.date === dateKey && record.time_slot === slot);
+
+          slotBookings.forEach(record => {
+            const fragment = document.getElementById("booking-template").content.cloneNode(true);
+            const booking = fragment.querySelector(".booking-card");
+            booking.classList.add(cartClass(record.cart));
+            booking.querySelector(".booking-cart").textContent = record.cart;
+            booking.querySelector(".booking-name").textContent = record.teacher_name;
+            booking.querySelector(".booking-class").textContent = `${record.class_group} · Seção ${record.section}`;
+            booking.querySelector(".booking-location").textContent = `Sala ${record.room}`;
+            cell.appendChild(fragment);
+          });
+
+          grid.appendChild(cell);
+        }
+      });
+    }
+
+    function showMessage(text, kind) {
+      message.textContent = text;
+      message.style.color = kind === "success" ? "#277a74" : "#b3442c";
+    }
+
+    // Busca agendamentos no banco
+    async function fetchAgendamentos() {
+      const { data, error } = await supabase.from('agendamentos').select('*');
+      if (!error && data) {
+        records = data;
+        renderCalendar();
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const teacherName = document.getElementById("teacher-name").value.trim();
+      const classGroup = document.getElementById("class-group").value;
+      const section = document.getElementById("section").value;
+      const room = document.getElementById("room").value;
+      const date = dateInput.value;
+      const timeSlot = timeSelect.value;
+      const cart = document.getElementById("cart").value;
+
+      // Validação de limite (Max 1 reserva por carrinho por horário)
+      const isCartTaken = records.some(record => 
+        record.cart === cart && record.date === date && record.time_slot === timeSlot
+      );
+
+      if (isCartTaken) {
+        showMessage(`O ${cart} já está reservado nesse dia e horário.`, "error");
+        return;
+      }
+
+      submitButton.disabled = true;
+      showMessage("Salvando reserva...", "success");
+
+      // Salva no banco de dados
+      const { error } = await supabase.from('agendamentos').insert([{
+        teacher_name: teacherName,
+        class_group: classGroup,
+        section: section,
+        room: room,
+        date: date,
+        time_slot: timeSlot,
+        cart: cart
+      }]);
+
+      submitButton.disabled = false;
+
+      if (!error) {
+        form.reset();
+        dateInput.value = isoDate(new Date());
+        activeWeek = startOfWeek(new Date(date + "T12:00:00"));
+        showMessage("Reserva confirmada com sucesso!", "success");
+        fetchAgendamentos(); // Atualiza a tela
+      } else {
+        showMessage("Erro ao salvar. Tente novamente.", "error");
+        console.error(error);
+      }
+    });
+
+    dateInput.addEventListener("change", () => {
+      if (dateInput.value) {
+        activeWeek = startOfWeek(new Date(dateInput.value + "T12:00:00"));
+        renderCalendar();
+      }
+    });
+
+    document.getElementById("previous-week").addEventListener("click", () => {
+      activeWeek = addDays(activeWeek, -7);
+      renderCalendar();
+    });
+
+    document.getElementById("next-week").addEventListener("click", () => {
+      activeWeek = addDays(activeWeek, 7);
+      renderCalendar();
+    });
+
+    document.getElementById("today-button").addEventListener("click", () => {
+      activeWeek = startOfWeek(new Date());
+      dateInput.value = isoDate(new Date());
+      renderCalendar();
+    });
+
+    async function initialize() {
+      lucide.createIcons();
+      dateInput.value = isoDate(new Date());
+      renderCalendar();
+      await fetchAgendamentos();
+
+      // Recurso Avançado: Atualização em Tempo Real
+      // Se outro professor agendar de outro computador, a tela atualiza sozinha!
+      supabase
+        .channel('public:agendamentos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, payload => {
+          fetchAgendamentos();
+        })
+        .subscribe();
+    }
+
+    initialize();
+  </script>
+</body>
+</html>
