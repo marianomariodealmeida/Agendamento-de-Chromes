@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo - Agendamento de Chromebooks</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --ink: #17352e;
+      --paper: #f4f1e8;
+      --line: #d8d5c8;
+      --a: #dd6a3c;
+    }
+    body { font-family: "DM Sans", sans-serif; color: var(--ink); background-color: var(--paper); }
+    .display-font { font-family: "Fraunces", serif; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Cabeçalho Admin -->
+  <header class="w-full bg-white border-b px-6 py-4 flex justify-between items-center" style="border-color: var(--line);">
+    <div class="flex items-center gap-3">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl text-white" style="background:#17352e;">
+        <i data-lucide="shield-check" width="20" height="20"></i>
+      </div>
+      <div>
+        <h1 class="display-font text-lg leading-tight">Painel Administrativo</h1>
+        <p class="text-xs opacity-70" id="user-email">Carregando usuário...</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="../index.html" target="_blank" class="text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-1.5 hover:bg-gray-50" style="border-color: var(--line);">
+        <i data-lucide="external-link" width="14" height="14"></i> Ver Site Público
+      </a>
+      <button id="logout-btn" class="text-xs font-bold px-3 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 flex items-center gap-1.5 transition">
+        <i data-lucide="log-out" width="14" height="14"></i> Sair
+      </button>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+    
+    <!-- Coluna de Ações/Estatísticas -->
+    <section class="space-y-6">
+      <div class="bg-white rounded-2xl p-6 border shadow-sm" style="border-color: var(--line);">
+        <h2 class="display-font text-xl mb-4">Resumo do Sistema</h2>
+        <div class="space-y-3">
+          <div class="p-4 rounded-xl bg-teal-50 border border-teal-100 flex justify-between items-center">
+            <span class="text-sm font-semibold text-teal-900">Total de Reservas</span>
+            <span id="total-reservas" class="text-2xl font-bold text-teal-900">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 border shadow-sm" style="border-color: var(--line);">
+        <h2 class="display-font text-xl mb-4">Ações Rápidas</h2>
+        <div class="space-y-2">
+          <button onclick="alert('Em breve: Configurações de cores e avisos!')" class="w-full text-left px-4 py-3 rounded-xl border font-medium text-sm flex items-center justify-between hover:bg-gray-50" style="border-color: var(--line);">
+            <span>Configurar Avisos & Layout</span>
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+          </button>
+          <button onclick="alert('Em breve: Bloqueio de datas!')" class="w-full text-left px-4 py-3 rounded-xl border font-medium text-sm flex items-center justify-between hover:bg-gray-50" style="border-color: var(--line);">
+            <span>Bloquear Dias/Horários</span>
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista e Gerenciamento de Agendamentos -->
+    <section class="md:col-span-2 bg-white rounded-2xl p-6 border shadow-sm" style="border-color: var(--line);">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="display-font text-xl">Todos os Agendamentos</h2>
+          <p class="text-xs opacity-70">Gerencie ou cancele reservas feitas pelos professores</p>
+        </div>
+        <button onclick="carregarAgendamentos()" class="p-2 rounded-lg border hover:bg-gray-50" title="Atualizar">
+          <i data-lucide="refresh-cw" width="16" height="16"></i>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b text-xs font-bold uppercase text-gray-500" style="border-color: var(--line);">
+              <th class="py-3 px-2">Data / Hora</th>
+              <th class="py-3 px-2">Professor</th>
+              <th class="py-3 px-2">Carrinho</th>
+              <th class="py-3 px-2">Turma / Sala</th>
+              <th class="py-3 px-2 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-agendamentos" class="text-sm divide-y" style="border-color: var(--line);">
+            <tr>
+              <td colspan="5" class="py-6 text-center text-gray-400">Carregando agendamentos...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // Conexão Supabase
+    const supabaseUrl = 'https://bwfumyculbfrmcahsbaz.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    // 1. Proteção de Rota: Verifica se está logado
+    async function checarAutenticacao() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Se não estiver logado, manda de volta pro login
+        window.location.href = '../login.html';
+        return;
+      }
+
+      document.getElementById('user-email').textContent = session.user.email;
+      carregarAgendamentos();
+    }
+
+    // 2. Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = '../login.html';
+    });
+
+    // 3. Buscar agendamentos do banco de dados real
+    async function carregarAgendamentos() {
+      const tbody = document.getElementById('tabela-agendamentos');
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-400">Carregando...</td></tr>';
+
+      const { data, error } = await supabase
+        .from('agendamentos')
+        .select('*')
+        .order('date', { ascending: true });
+
+      if (error) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-red-500">Erro ao carregar dados.</td></tr>';
+        return;
+      }
+
+      document.getElementById('total-reservas').textContent = data.length;
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500">Nenhum agendamento encontrado no banco.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(item => `
+        <tr class="hover:bg-gray-50">
+          <td class="py-3 px-2 font-medium">${item.date}<br><span class="text-xs text-gray-500">${item.time_slot}</span></td>
+          <td class="py-3 px-2 font-semibold">${item.teacher_name}</td>
+          <td class="py-3 px-2"><span class="px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800">${item.cart}</span></td>
+          <td class="py-3 px-2 text-xs">${item.class_group} - Seção ${item.section}<br><strong>Sala ${item.room}</strong></td>
+          <td class="py-3 px-2 text-right">
+            <button onclick="deletarAgendamento('${item.id}')" class="text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50" title="Excluir">
+              <i data-lucide="trash-2" width="16" height="16"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    // 4. Deletar Agendamento (Admin)
+    async function deletarAgendamento(id) {
+      if (!confirm("Tem certeza que deseja cancelar este agendamento?")) return;
+
+      const { error } = await supabase
+        .from('agendamentos')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        alert("Erro ao excluir agendamento.");
+      } else {
+        carregarAgendamentos();
+      }
+    }
+
+    checarAutenticacao();
+  </script>
+</body>
+</html>
