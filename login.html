@@ -3,27 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Agendamento de Chromebooks</title>
+  <title>Acesso - Agendamento de Chromebooks</title>
+
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <!-- Importando a biblioteca oficial do Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-  
+
   <style>
     :root {
       --ink: #17352e;
       --paper: #f4f1e8;
-      --a: #dd6a3c;
-      --b: #277a74;
+      --line: #d8d5c8;
     }
-    * { box-sizing: border-box; }
-    body { 
-      font-family: "DM Sans", sans-serif; 
-      color: var(--ink); 
-      background-color: var(--paper);
-    }
+    body { font-family: "DM Sans", sans-serif; color: var(--ink); }
     .display-font { font-family: "Fraunces", serif; }
     .paper-grid {
       background-image: linear-gradient(rgba(23,53,46,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23,53,46,.035) 1px, transparent 1px);
@@ -35,94 +29,210 @@
     }
   </style>
 </head>
-<body class="paper-grid min-h-screen flex items-center justify-center p-5">
+<body class="paper-grid bg-[#f4f1e8] min-h-screen flex flex-col justify-between">
 
-  <main class="w-full max-w-md bg-white rounded-2xl p-8 shadow-sm border" style="border-color:#d8d5c8;">
-    <div class="text-center mb-8">
-      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl text-white mb-4" style="background:#17352e;">
-        <i data-lucide="lock" width="25" height="25"></i>
-      </div>
-      <h1 class="display-font text-2xl mb-1">Acesso Restrito</h1>
-      <p class="text-sm opacity-80">Faça login para gerenciar os agendamentos</p>
+  <!-- CABEÇALHO -->
+  <header class="w-full border-b px-5 py-5 md:px-10 bg-[#f4f1e8]" style="border-color:#d8d5c8;">
+    <div class="mx-auto flex max-w-7xl items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl text-white bg-[#17352e]">
+          <i data-lucide="arrow-left" width="20" height="20"></i>
+        </div>
+        <span class="text-sm font-bold">Voltar ao Calendário</span>
+      </a>
+      <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" class="flex items-center gap-2 rounded-xl bg-green-100 text-green-800 px-3.5 py-2 text-xs font-bold transition hover:bg-green-200">
+        <i data-lucide="message-circle" width="16" height="16"></i> Suporte
+      </a>
     </div>
+  </header>
 
-    <form id="login-form" class="space-y-4">
-      <div>
-        <label class="block text-sm font-semibold mb-1.5" for="email">E-mail</label>
-        <input id="email" type="email" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;" placeholder="admin@escola.com.br">
-      </div>
+  <!-- CARTÃO DE AUTENTICAÇÃO -->
+  <main class="flex-1 flex items-center justify-center p-5">
+    <div class="w-full max-w-md bg-white border border-[#d8d5c8] rounded-2xl p-6 shadow-sm">
       
-      <div>
-        <label class="block text-sm font-semibold mb-1.5" for="password">Senha</label>
-        <input id="password" type="password" required class="w-full rounded-xl border bg-white px-3.5 py-3 text-sm shadow-sm" style="border-color:#d8d5c8;" placeholder="••••••••">
+      <div class="text-center mb-6">
+        <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#17352e] text-white mb-3">
+          <i data-lucide="user-check" width="24" height="24"></i>
+        </div>
+        <h1 class="display-font text-2xl font-bold">Área do Professor</h1>
+        <p class="text-xs opacity-75 mt-1">Acesse sua conta para agendar e gerenciar seus horários</p>
       </div>
 
-      <button id="submit-button" type="submit" class="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-sm transition hover:opacity-90 text-white mt-6" style="background: var(--ink);">
-        <i data-lucide="log-in" width="18" height="18"></i>
-        <span>Entrar no Sistema</span>
-      </button>
-    </form>
+      <!-- BOTÕES DE ALTERNÂNCIA (ENTRAR / CADASTRAR) -->
+      <div class="flex rounded-xl bg-[#f4f1e8] p-1 border border-[#d8d5c8] mb-6">
+        <button id="tab-login" class="w-1/2 py-2 text-xs font-bold rounded-lg transition bg-white text-[#17352e] shadow-sm">
+          Já tenho conta
+        </button>
+        <button id="tab-register" class="w-1/2 py-2 text-xs font-bold rounded-lg transition text-[#17352e] opacity-70 hover:opacity-100">
+          Criar nova conta
+        </button>
+      </div>
 
-    <p id="form-message" class="mt-4 text-center min-h-[1.25rem] text-sm font-medium" role="status" aria-live="polite"></p>
+      <!-- FORMULÁRIO DE LOGIN -->
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" for="login-email">E-mail Institucional</label>
+          <input id="login-email" type="email" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm" placeholder="professor@escola.com">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" for="login-password">Senha</label>
+          <input id="login-password" type="password" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm" placeholder="••••••••">
+        </div>
+        <button id="login-btn" type="submit" class="w-full rounded-xl bg-[#17352e] text-white py-3 text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-2">
+          <i data-lucide="log-in" width="16" height="16"></i> Entrar no Sistema
+        </button>
+      </form>
+
+      <!-- FORMULÁRIO DE CADASTRO -->
+      <form id="register-form" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" for="reg-name">Nome Completo</label>
+          <input id="reg-name" type="text" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm" placeholder="Prof. Carlos Andrade">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" for="reg-email">E-mail Institucional</label>
+          <input id="reg-email" type="email" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm" placeholder="professor@escola.com">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1.5" for="reg-password">Criar Senha</label>
+          <input id="reg-password" type="password" required minlength="6" class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm" placeholder="Mínimo 6 caracteres">
+        </div>
+        <button id="reg-btn" type="submit" class="w-full rounded-xl bg-[#dd6a3c] text-white py-3 text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-2">
+          <i data-lucide="user-plus" width="16" height="16"></i> Cadastrar e Entrar
+        </button>
+      </form>
+
+      <!-- MENSAGEM DE STATUS -->
+      <p id="auth-message" class="mt-4 text-center text-xs font-semibold min-h-[1rem]"></p>
+    </div>
   </main>
 
-  <script>
-    lucide.createIcons();
+  <footer class="text-center py-4 text-xs opacity-60">
+    Laboratório Móvel de Chromebooks &copy; 2026
+  </footer>
 
-    // 1. Configuração do Supabase (COLE SUAS CHAVES AQUI)
-    const supabaseUrl = 'SUA_SUPABASE_URL_AQUI';
-    const supabaseAnonKey = 'SUA_SUPABASE_ANON_KEY_AQUI';
+  <script>
+    const supabaseUrl = 'https://bwfumyculbfrmcahsbaz.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
     const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-    // 2. Elementos da interface
-    const form = document.getElementById('login-form');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const messageEl = document.getElementById('form-message');
-    const submitBtn = document.getElementById('submit-button');
+    const tabLogin = document.getElementById("tab-login");
+    const tabRegister = document.getElementById("tab-register");
+    const loginForm = document.getElementById("login-form");
+    const registerForm = document.getElementById("register-form");
+    const message = document.getElementById("auth-message");
 
-    function showMessage(text, isError = false) {
-      messageEl.textContent = text;
-      messageEl.style.color = isError ? "#b3442c" : "#277a74";
+    // Alternar Abas
+    tabLogin.addEventListener("click", () => {
+      tabLogin.classList.add("bg-white", "shadow-sm");
+      tabLogin.classList.remove("opacity-70");
+      tabRegister.classList.remove("bg-white", "shadow-sm");
+      tabRegister.classList.add("opacity-70");
+      loginForm.classList.remove("hidden");
+      registerForm.classList.add("hidden");
+      message.textContent = "";
+    });
+
+    tabRegister.addEventListener("click", () => {
+      tabRegister.classList.add("bg-white", "shadow-sm");
+      tabRegister.classList.remove("opacity-70");
+      tabLogin.classList.remove("bg-white", "shadow-sm");
+      tabLogin.classList.add("opacity-70");
+      registerForm.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+      message.textContent = "";
+    });
+
+    function showMsg(txt, isError = false) {
+      message.textContent = txt;
+      message.style.color = isError ? "#b3442c" : "#277a74";
     }
 
-    // 3. Lógica de Login
-    form.addEventListener('submit', async (e) => {
+    // Redireciona caso o usuário já esteja autenticado
+    async function checkExistingSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        window.location.href = "agendamento-usuario.html";
+      }
+    }
+
+    // Ação de Login
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      submitBtn.disabled = true;
-      submitBtn.style.opacity = '0.6';
-      showMessage("Autenticando...");
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value;
+      const btn = document.getElementById("login-btn");
 
-      const email = emailInput.value;
-      const password = passwordInput.value;
+      btn.disabled = true;
+      showMsg("Autenticando...");
 
-      // Chama a função de autenticação do Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      btn.disabled = false;
 
       if (error) {
-        showMessage("E-mail ou senha incorretos.", true);
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
+        showMsg("E-mail ou senha incorretos.", true);
       } else {
-        showMessage("Login realizado com sucesso! Redirecionando...");
-        // Redireciona para a página administrativa
-        window.location.href = '/admin/'; 
+        showMsg("Login efetuado! Redirecionando...");
+        
+        // Verifica se é Admin
+        const { data: perfil } = await supabase
+          .from('perfis')
+          .select('cargo')
+          .eq('id', data.user.id)
+          .single();
+
+        if (perfil && perfil.cargo === 'admin') {
+          window.location.href = "admin/index.html";
+        } else {
+          window.location.href = "agendamento-usuario.html";
+        }
       }
     });
 
-    // 4. Verifica se já está logado (para pular essa tela se necessário)
-    async function checkLogin() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        window.location.href = '/admin/';
+    // Ação de Cadastro
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("reg-name").value.trim();
+      const email = document.getElementById("reg-email").value.trim();
+      const password = document.getElementById("reg-password").value;
+      const btn = document.getElementById("reg-btn");
+
+      btn.disabled = true;
+      showMsg("Criando conta...");
+
+      const { data, error } = await supabase.auth.signUp({ email, password });
+
+      if (error) {
+        btn.disabled = false;
+        showMsg(error.message || "Erro ao criar conta.", true);
+        return;
       }
-    }
-    
-    // Executa a verificação ao carregar a página
-    checkLogin();
+
+      if (data.user) {
+        // Salva perfil na tabela auxiliar
+        const { error: profileError } = await supabase.from('perfis').insert([{
+          id: data.user.id,
+          nome_completo: name,
+          cargo: 'professor'
+        }]);
+
+        btn.disabled = false;
+
+        if (profileError) {
+          console.error(profileError);
+          showMsg("Conta criada, mas houve uma falha ao registrar o nome.", true);
+        } else {
+          showMsg("Conta criada com sucesso! Redirecionando...");
+          setTimeout(() => {
+            window.location.href = "agendamento-usuario.html";
+          }, 1200);
+        }
+      }
+    });
+
+    checkExistingSession();
+    lucide.createIcons();
   </script>
 </body>
 </html>
