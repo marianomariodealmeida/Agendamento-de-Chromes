@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitação de Agendamento - Visitante</title>
+
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --ink: #17352e;
+      --paper: #f4f1e8;
+      --line: #d8d5c8;
+    }
+    body { font-family: "DM Sans", sans-serif; color: var(--ink); }
+    .display-font { font-family: "Fraunces", serif; }
+    .paper-grid {
+      background-image: linear-gradient(rgba(23,53,46,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23,53,46,.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    input:focus-visible, select:focus-visible {
+      outline: 3px solid #dd6a3c;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="paper-grid bg-[#f4f1e8] min-h-screen flex flex-col justify-between">
+
+  <!-- CABEÇALHO -->
+  <header class="w-full border-b px-5 py-5 md:px-10 bg-[#f4f1e8]" style="border-color:#d8d5c8;">
+    <div class="mx-auto flex max-w-7xl items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl text-white bg-[#17352e]">
+          <i data-lucide="arrow-left" width="20" height="20"></i>
+        </div>
+        <span class="text-sm font-bold">Voltar ao Calendário</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <a href="login.html" class="text-xs font-bold underline hover:opacity-80">Já tem conta? Entrar</a>
+        <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" class="flex items-center gap-2 rounded-xl bg-green-100 text-green-800 px-3.5 py-2 text-xs font-bold transition hover:bg-green-200">
+          <i data-lucide="message-circle" width="16" height="16"></i> Suporte
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- FORMULÁRIO DE VISITANTE -->
+  <main class="flex-1 flex items-center justify-center p-5">
+    <div class="w-full max-w-xl bg-white border border-[#d8d5c8] rounded-2xl p-6 shadow-sm">
+      
+      <div class="mb-6 border-b border-[#d8d5c8] pb-4">
+        <span class="text-xs font-bold uppercase tracking-wider text-[#d5a52a]">Solicitação Externa</span>
+        <h1 class="display-font text-2xl font-bold">Agendamento sem Login</h1>
+        <p class="text-xs opacity-75 mt-1">Todas as solicitações enviadas sem autenticação passam por aprovação prévia do Administrador.</p>
+      </div>
+
+      <form id="visitor-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="teacher-name">Seu Nome Completo</label>
+          <input id="teacher-name" type="text" required placeholder="Prof. Maria Silva" class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="room">Sala</label>
+            <select id="room" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm">
+              <option value="" disabled selected>Escolha...</option>
+              <script>
+                for(let i=1; i<=33; i++) document.write(`<option value="${i}">Sala ${i}</option>`);
+              </script>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="quantity">Qtd. Aparelhos</label>
+            <input id="quantity" type="number" min="1" max="45" value="45" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="class-group">Turma</label>
+            <select id="class-group" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3 py-2.5 text-xs">
+              <option value="" disabled selected>Selecione...</option>
+              <option>1º ano Fundamental</option><option>2º ano Fundamental</option><option>3º ano Fundamental</option>
+              <option>4º ano Fundamental</option><option>5º ano Fundamental</option><option>6º ano Fundamental</option>
+              <option>7º ano Fundamental</option><option>8º ano Fundamental</option><option>9º ano Fundamental</option>
+              <option>1º ano Médio</option><option>2º ano Médio</option><option>3º ano Médio</option>
+              <option>Contraturno 1</option><option>Contraturno 2</option><option>Contraturno 3</option><option>Contraturno 4</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="section">Seção</label>
+            <select id="section" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3.5 py-2.5 text-sm">
+              <option value="" disabled selected>A a G</option>
+              <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="booking-date">Data</label>
+            <input id="booking-date" type="date" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3 py-2.5 text-xs">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider mb-1" for="time-slot">Horário</label>
+            <select id="time-slot" required class="w-full rounded-xl border border-[#d8d5c8] bg-[#fdfbf5] px-3 py-2.5 text-xs">
+              <option value="" disabled selected>Selecione...</option>
+              <option>07:00 – 07:45</option><option>07:45 – 08:30</option><option>08:30 – 09:15</option>
+              <option>09:35 – 10:20</option><option>10:20 – 11:05</option><option>11:05 – 11:50</option><option>11:50 – 12:35</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-[#fff7d9] border border-[#d5a52a] p-3 text-xs text-[#6d5110] flex items-start gap-2">
+          <i data-lucide="clock" width="16" height="16" class="shrink-0 mt-0.5"></i>
+          <span>Solicitações sem login exigem 24h de antecedência e aprovação do Admin antes de entrarem no calendário como confirmadas.</span>
+        </div>
+
+        <button id="submit-btn" type="submit" class="w-full rounded-xl bg-[#d5a52a] text-[#523d08] py-3 text-sm font-bold shadow-sm transition hover:opacity-90 flex items-center justify-center gap-2">
+          <i data-lucide="send" width="18" height="18"></i> Enviar para Aprovação
+        </button>
+      </form>
+
+      <p id="form-msg" class="mt-4 text-center text-xs font-semibold min-h-[1.25rem]"></p>
+    </div>
+  </main>
+
+  <footer class="text-center py-4 text-xs opacity-60">
+    Laboratório Móvel de Chromebooks &copy; 2026
+  </footer>
+
+  <script>
+    const supabaseUrl = 'https://bwfumyculbfrmcahsbaz.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    function validate24hNotice(dateStr, slotStr) {
+      const startTime = slotStr.split("–")[0].trim();
+      const bookingDateTime = new Date(`${dateStr}T${startTime}:00`);
+      const minAllowedTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      return bookingDateTime >= minAllowedTime;
+    }
+
+    function initPage() {
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const minDateStr = tomorrow.toISOString().slice(0, 10);
+      document.getElementById("booking-date").min = minDateStr;
+      document.getElementById("booking-date").value = minDateStr;
+      lucide.createIcons();
+    }
+
+    document.getElementById("visitor-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("form-msg");
+      const submitBtn = document.getElementById("submit-btn");
+
+      const teacherName = document.getElementById("teacher-name").value.trim();
+      const room = document.getElementById("room").value;
+      const quantidade = parseInt(document.getElementById("quantity").value);
+      const classGroup = document.getElementById("class-group").value;
+      const section = document.getElementById("section").value;
+      const date = document.getElementById("booking-date").value;
+      const timeSlot = document.getElementById("time-slot").value;
+
+      // 1. Validação de Antecedência de 24h
+      if (!validate24hNotice(date, timeSlot)) {
+        msg.textContent = "Agendamentos precisam ser feitos com no mínimo 24 horas de antecedência.";
+        msg.style.color = "#b3442c";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      msg.textContent = "Verificando disponibilidade...";
+      msg.style.color = "#277a74";
+
+      // 2. Validar Capacidade Máxima do Horário (Max 90 unidades)
+      const { data: slotBookings } = await supabase
+        .from('agendamentos')
+        .select('quantidade')
+        .eq('date', date)
+        .eq('time_slot', timeSlot);
+
+      const totalBooked = (slotBookings || []).reduce((sum, item) => sum + (item.quantidade || 45), 0);
+      if (totalBooked + quantidade > 90) {
+        submitBtn.disabled = false;
+        msg.textContent = `Capacidade excedida. Já existem ${totalBooked} Chromebooks solicitados neste horário (Limite: 90).`;
+        msg.style.color = "#b3442c";
+        return;
+      }
+
+      // 3. Inserir solicitação com status PENDENTE
+      const { error } = await supabase.from('agendamentos').insert([{
+        teacher_name: teacherName,
+        room: room,
+        class_group: classGroup,
+        section: section,
+        date: date,
+        time_slot: timeSlot,
+        quantidade: quantidade,
+        status: 'pendente',
+        eh_visitante: true,
+        professor_id: null
+      }]);
+
+      submitBtn.disabled = false;
+
+      if (error) {
+        msg.textContent = "Erro ao enviar solicitação. Tente novamente.";
+        msg.style.color = "#b3442c";
+        console.error(error);
+      } else {
+        document.getElementById("visitor-form").reset();
+        initPage();
+        msg.textContent = "Solicitação enviada com sucesso! Ela aguarda aprovação do Admin para aparecer no calendário.";
+        msg.style.color = "#277a74";
+      }
+    });
+
+    initPage();
+  </script>
+</body>
+</html>
