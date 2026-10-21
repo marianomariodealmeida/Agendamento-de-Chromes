@@ -3,225 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agendamento de Chromebooks</title>
-
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Acesso — Agendamento de Chromebooks</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
 
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
 
-  <style>
-    :root {
-      --ink: #17352e;
-      --paper: #f4f1e8;
-      --line: #d8d5c8;
-    }
-    body { font-family: "DM Sans", sans-serif; color: var(--ink); }
-    .display-font { font-family: "Fraunces", serif; }
-    .paper-grid {
-      background-image: linear-gradient(rgba(23,53,46,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23,53,46,.035) 1px, transparent 1px);
-      background-size: 28px 28px;
-    }
-    .week-grid {
-      display: grid;
-      grid-template-columns: 80px repeat(5, minmax(140px, 1fr));
-      min-width: 800px;
-    }
-    .calendar-cell { min-height: 90px; padding: 6px; }
-    .booking-card {
-      border-left: 4px solid;
-      border-radius: 6px;
-      padding: 6px;
-      font-size: 11px;
-      line-height: 1.25;
-      margin-bottom: 4px;
-    }
-    .status-confirmado { background: #e8f5f2; border-color: #277a74; color: #14504b; }
-    .status-pendente { background: #fff7d9; border-color: #d5a52a; color: #6d5110; }
-  </style>
+  <script src="https://cdn.tailwindcss.com/3.4.17" onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s);"></script>
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/common.js"></script>
 </head>
-<body class="paper-grid bg-[#f4f1e8] min-h-screen">
+<body class="paper-grid min-h-screen flex flex-col justify-between">
 
-  <header class="w-full border-b px-5 py-5 md:px-10 bg-[#f4f1e8]" style="border-color:#d8d5c8;">
-    <div class="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="flex h-11 w-11 items-center justify-center rounded-xl text-white bg-[#17352e]">
-          <i data-lucide="laptop" width="22" height="22"></i>
+  <header class="w-full border-b px-5 py-4 md:px-10" style="border-color:var(--line);">
+    <div class="mx-auto flex max-w-7xl items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#17352e] text-white">
+          <i data-icon="arrow-left" class="h-5 w-5"></i>
         </div>
-        <div>
-          <p class="text-xs font-bold uppercase tracking-wider opacity-70">Laboratório Móvel</p>
-          <h1 class="display-font text-2xl">Agendamento de Chromebooks</h1>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" class="flex items-center gap-2 rounded-xl bg-green-100 text-green-800 px-3.5 py-2 text-sm font-bold transition hover:bg-green-200">
-          <i data-lucide="message-circle" width="16" height="16"></i> Suporte
-        </a>
-        <a id="login-nav-btn" href="login.html" class="flex items-center gap-2 rounded-xl bg-[#17352e] text-white px-3.5 py-2 text-sm font-bold transition hover:opacity-90">
-          <i data-lucide="user" width="16" height="16"></i> <span id="login-btn-text">Entrar / Login</span>
-        </a>
-      </div>
+        <span class="text-sm font-bold">Voltar ao Calendário</span>
+      </a>
+      <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" rel="noopener" class="btn btn-what btn-sm">
+        <i data-icon="message-circle" class="h-4 w-4"></i> Suporte
+      </a>
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-5 py-7 md:px-10">
-    <div class="mb-6 flex flex-col gap-4 rounded-2xl border border-[#d8d5c8] bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h2 class="display-font text-2xl font-bold">Consulta de Disponibilidade</h2>
-        <p class="mt-1 text-sm opacity-80">Veja os horários ocupados nesta semana e solicite o uso dos aparelhos.</p>
-      </div>
-      <a id="action-book-btn" href="agendamento-visitante.html" class="flex items-center justify-center gap-2 rounded-xl bg-[#dd6a3c] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90">
-        <i data-lucide="calendar-plus" width="18" height="18"></i>
-        <span>Solicitar Agendamento</span>
-      </a>
-    </div>
+  <main class="flex flex-1 items-center justify-center p-5">
+    <div class="card w-full max-w-md p-6">
 
-    <section class="overflow-hidden rounded-2xl border border-[#d8d5c8] bg-white shadow-sm">
-      <div class="flex flex-col gap-4 border-b border-[#d8d5c8] p-5 md:flex-row md:items-center md:justify-between">
+      <div class="mb-6 text-center">
+        <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#17352e] text-white">
+          <i data-icon="user-check" class="h-6 w-6"></i>
+        </div>
+        <h1 class="display-font text-2xl font-bold">Área do Professor</h1>
+        <p class="mt-1 text-xs opacity-75">Acesse sua conta para agendar e gerenciar seus horários</p>
+      </div>
+
+      <div class="mb-6 flex rounded-xl border p-1" style="border-color:var(--line); background:var(--paper);">
+        <button id="tab-login" class="tab-btn w-1/2 justify-center bg-white text-[#17352e] shadow-sm">Já tenho conta</button>
+        <button id="tab-register" class="tab-btn w-1/2 justify-center opacity-70">Criar nova conta</button>
+      </div>
+
+      <form id="login-form" class="space-y-4">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-[#277a74]">Visão Geral</p>
-          <h3 id="week-range" class="display-font text-xl font-bold"></h3>
+          <label class="label" for="login-email">E-mail Institucional</label>
+          <input id="login-email" type="email" required class="input" placeholder="professor@escola.com" autocomplete="email">
         </div>
-        <div class="flex items-center gap-2 rounded-xl border border-[#d8d5c8] bg-[#f4f1e8] p-1">
-          <button id="prev-week" class="rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-white"><i data-lucide="chevron-left" class="inline" width="14"></i> Anterior</button>
-          <button id="today-btn" class="rounded-lg bg-[#17352e] px-3 py-1.5 text-xs font-semibold text-white">Hoje</button>
-          <button id="next-week" class="rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-white">Próxima <i data-lucide="chevron-right" class="inline" width="14"></i></button>
+        <div>
+          <label class="label" for="login-password">Senha</label>
+          <div class="relative">
+            <input id="login-password" type="password" required class="input pr-11" placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="pw-toggle absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#537069] hover:bg-[#f0ede1]" aria-label="Mostrar senha">
+              <i data-icon="eye" class="h-4 w-4"></i>
+            </button>
+          </div>
         </div>
-      </div>
+        <div class="flex justify-end">
+          <button type="button" id="forgot-btn" class="text-xs font-bold text-[#c0562b] underline-offset-2 hover:underline">Esqueci minha senha</button>
+        </div>
+        <button id="login-btn" type="submit" class="btn btn-dark btn-lg w-full">
+          <i data-icon="log-in" class="h-4 w-4"></i> Entrar no Sistema
+        </button>
+      </form>
 
-      <div class="overflow-x-auto p-4">
-        <div id="week-grid" class="week-grid rounded-xl border border-[#d8d5c8] bg-white"></div>
-      </div>
+      <form id="register-form" class="hidden space-y-4">
+        <div>
+          <label class="label" for="reg-name">Nome Completo</label>
+          <input id="reg-name" type="text" required class="input" placeholder="Prof. Carlos Andrade" autocomplete="name">
+        </div>
+        <div>
+          <label class="label" for="reg-email">E-mail Institucional</label>
+          <input id="reg-email" type="email" required class="input" placeholder="professor@escola.com" autocomplete="email">
+        </div>
+        <div>
+          <label class="label" for="reg-password">Criar Senha</label>
+          <div class="relative">
+            <input id="reg-password" type="password" required minlength="6" class="input pr-11" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+            <button type="button" class="pw-toggle absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#537069] hover:bg-[#f0ede1]" aria-label="Mostrar senha">
+              <i data-icon="eye" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </div>
+        <button id="reg-btn" type="submit" class="btn btn-primary btn-lg w-full">
+          <i data-icon="user-plus" class="h-4 w-4"></i> Cadastrar e Entrar
+        </button>
+      </form>
 
-      <footer class="flex flex-wrap gap-4 border-t border-[#d8d5c8] px-5 py-3 text-xs font-medium">
-        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-[#277a74]"></span> Confirmado</span>
-        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-[#d5a52a]"></span> Pendente de Aprovação</span>
-        <span class="ml-auto opacity-70">Limite: 90 Chromebooks por horário</span>
-      </footer>
-    </section>
+      <p id="auth-message" class="mt-4 min-h-[1.25rem] text-center text-xs font-semibold"></p>
+    </div>
   </main>
 
-  <script>
-    const supabaseUrl = 'https://bwfumyculbfrmcahsbaz.supabase.co';
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+  <footer class="py-4 text-center text-xs opacity-60">
+    Laboratório Móvel de Chromebooks — Agendamento Escolar
+  </footer>
 
-    const slots = [
-      "07:00 – 07:45", "07:45 – 08:30", "08:30 – 09:15",
-      "09:35 – 10:20", "10:20 – 11:05", "11:05 – 11:50", "11:50 – 12:35"
-    ];
-    const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex"];
-    let records = [];
-    let activeWeek = startOfWeek(new Date());
-
-    function startOfWeek(d) {
-      const copy = new Date(d);
-      copy.setHours(12, 0, 0, 0);
-      const day = copy.getDay();
-      copy.setDate(copy.getDate() - (day === 0 ? 6 : day - 1));
-      return copy;
-    }
-
-    function addDays(d, n) {
-      const copy = new Date(d);
-      copy.setDate(copy.getDate() + n);
-      return copy;
-    }
-
-    function isoDate(d) {
-      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    }
-
-    function formatRange() {
-      const end = addDays(activeWeek, 4);
-      const opts = { day: "numeric", month: "short" };
-      document.getElementById("week-range").textContent = 
-        `${activeWeek.toLocaleDateString("pt-BR", opts)} – ${end.toLocaleDateString("pt-BR", opts)}`;
-    }
-
-    async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const actionBtn = document.getElementById("action-book-btn");
-      const loginBtnText = document.getElementById("login-btn-text");
-      const loginNavBtn = document.getElementById("login-nav-btn");
-
-      if (session) {
-        actionBtn.href = "agendamento-usuario.html";
-        loginBtnText.textContent = "Meu Painel";
-        loginNavBtn.href = "agendamento-usuario.html";
-      } else {
-        actionBtn.href = "agendamento-visitante.html";
-        loginBtnText.textContent = "Entrar / Login";
-        loginNavBtn.href = "login.html";
-      }
-    }
-
-    function renderCalendar() {
-      const grid = document.getElementById("week-grid");
-      grid.innerHTML = "";
-      formatRange();
-
-      const corner = document.createElement("div");
-      corner.className = "p-2 bg-[#f4f1e8] border-b border-r border-[#d8d5c8]";
-      grid.appendChild(corner);
-
-      for (let i = 0; i < 5; i++) {
-        const date = addDays(activeWeek, i);
-        const head = document.createElement("div");
-        head.className = "p-2 bg-[#f4f1e8] text-center border-b border-r border-[#d8d5c8]";
-        head.innerHTML = `<span class="text-[10px] font-bold uppercase text-[#537069] block">${weekdays[i]}</span><strong class="text-xs">${date.getDate()}/${date.getMonth()+1}</strong>`;
-        grid.appendChild(head);
-      }
-
-      slots.forEach(slot => {
-        const slotCell = document.createElement("div");
-        slotCell.className = "p-2 text-[10px] font-bold text-[#537069] bg-[#fdfbf5] border-b border-r border-[#d8d5c8] flex items-center";
-        slotCell.textContent = slot;
-        grid.appendChild(slotCell);
-
-        for (let i = 0; i < 5; i++) {
-          const dateKey = isoDate(addDays(activeWeek, i));
-          const cell = document.createElement("div");
-          cell.className = "calendar-cell bg-white border-b border-r border-[#d8d5c8]";
-
-          const slotBookings = records.filter(r => r.date === dateKey && r.time_slot === slot);
-
-          slotBookings.forEach(b => {
-            const card = document.createElement("div");
-            card.className = `booking-card ${b.status === 'pendente' ? 'status-pendente' : 'status-confirmado'}`;
-            card.innerHTML = `
-              <strong class="block">${b.teacher_name || 'Professor'}</strong>
-              <span>${b.class_group || ''} ${b.section || ''} (${b.quantidade || 45} chrs)</span>
-              ${b.status === 'pendente' ? '<span class="block text-[9px] font-bold uppercase mt-0.5 opacity-75">Pendente</span>' : ''}
-            `;
-            cell.appendChild(card);
-          });
-
-          grid.appendChild(cell);
-        }
-      });
-    }
-
-    async function fetchAgendamentos() {
-      const { data, error } = await supabase.from('agendamentos').select('*');
-      if (!error && data) {
-        records = data;
-        renderCalendar();
-      }
-    }
-
-    document.getElementById("prev-week").addEventListener("click", () => { activeWeek = addDays(activeWeek, -7); renderCalendar(); });
-    document.getElementById("next-week").addEventListener("click", () => { activeWeek = addDays(activeWeek, 7); renderCalendar(); });
-    document.getElementById("today-btn").addEventListener("click", () => { activeWeek = startOfWeek(new Date()); renderCalendar(); });
-
-    checkAuth();
-    fetchAgendamentos();
-    lucide.createIcons();
-
-    supabase.channel('agendamentos_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, () => fetchAgendamentos())
-      .subscribe();
-  </script>
+  <script src="assets/js/page-login.js"></script>
 </body>
 </html>
