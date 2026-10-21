@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Administrador — Agendamento de Chromebooks</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/base.css">
+
+  <script src="https://cdn.tailwindcss.com/3.4.17" onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s);"></script>
+  <script src="../assets/js/icons.js"></script>
+  <script src="../assets/js/common.js"></script>
+</head>
+<body class="paper-grid min-h-screen">
+
+  <header class="w-full bg-[#17352e] text-white">
+    <div class="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-5 md:px-10 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#dd6a3c] shadow-md">
+          <i data-icon="shield-check" class="h-6 w-6"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#e8b49b]">Modo Administrador</span>
+          <h1 class="display-font text-xl font-bold leading-tight sm:text-2xl">Gestão de Chromebooks</h1>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="../index.html" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.12);">
+          <i data-icon="calendar" class="h-4 w-4"></i> Calendário
+        </a>
+        <button id="logout-btn" class="btn btn-sm text-red-100" style="background:rgba(244,63,63,0.18);">
+          <i data-icon="log-out" class="h-4 w-4"></i> Sair
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-5 py-7 md:px-10">
+
+    <!-- Indicadores -->
+    <section id="stats-row" class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="card flex items-center gap-4 p-5">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style="background:#fdf3d3;color:#8a6a12;">
+          <i data-icon="clock" class="h-6 w-6"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider opacity-60">Pendentes</span>
+          <h3 id="count-pending" class="display-font text-2xl font-bold">0</h3>
+        </div>
+      </div>
+      <div class="card flex items-center gap-4 p-5">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style="background:#e4f3f0;color:#277a74;">
+          <i data-icon="check-circle-2" class="h-6 w-6"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider opacity-60">Confirmados</span>
+          <h3 id="count-confirmed" class="display-font text-2xl font-bold">0</h3>
+        </div>
+      </div>
+      <div class="card flex items-center gap-4 p-5">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style="background:#e3eefb;color:#255a8a;">
+          <i data-icon="laptop" class="h-6 w-6"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider opacity-60">Total de Reservas</span>
+          <h3 id="count-total" class="display-font text-2xl font-bold">0</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- Abas -->
+    <nav class="mb-6 flex flex-wrap gap-1.5 rounded-2xl border p-1.5" style="border-color:var(--line); background:#ece9db;">
+      <button class="tab-btn active" data-tab="reservas"><i data-icon="calendar" class="h-4 w-4"></i> Reservas</button>
+      <button class="tab-btn" data-tab="chromebooks"><i data-icon="monitor" class="h-4 w-4"></i> Chromebooks</button>
+      <button class="tab-btn" data-tab="carrinhos"><i data-icon="archive" class="h-4 w-4"></i> Carrinhos</button>
+      <button class="tab-btn" data-tab="formulario"><i data-icon="layout-template" class="h-4 w-4"></i> Formulário</button>
+    </nav>
+
+    <!-- ======================= RESERVAS ======================= -->
+    <section id="tab-reservas" class="tab-panel space-y-6">
+
+      <div class="card p-6">
+        <div class="mb-5 flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between" style="border-color:var(--line);">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#a97d15]">Ação Requerida</span>
+            <h2 class="display-font text-2xl font-bold">Solicitações Aguardando Aprovação</h2>
+          </div>
+          <span class="text-xs opacity-60">Visitantes e solicitações acima do limite diário</span>
+        </div>
+        <div id="pending-list" class="space-y-3">
+          <p class="py-6 text-center text-xs opacity-60">Carregando pendências...</p>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <div class="mb-5 flex flex-col gap-3 border-b pb-4 md:flex-row md:items-center md:justify-between" style="border-color:var(--line);">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Base Geral</span>
+            <h2 class="display-font text-2xl font-bold">Agendamentos Confirmados</h2>
+          </div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div class="relative">
+              <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#537069]"><i data-icon="search" class="h-4 w-4"></i></span>
+              <input id="search-input" type="text" placeholder="Filtrar por professor, sala ou data..." class="input !pl-10 sm:w-72">
+            </div>
+            <button id="export-csv-btn" class="btn btn-outline btn-sm">
+              <i data-icon="download" class="h-4 w-4"></i> Exportar CSV
+            </button>
+          </div>
+        </div>
+        <div id="confirmed-list" class="max-h-[560px] space-y-3 overflow-y-auto pr-1">
+          <p class="py-6 text-center text-xs opacity-60">Carregando agendamentos...</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================= CHROMEBOOKS ======================= -->
+    <section id="tab-chromebooks" class="tab-panel hidden">
+      <div class="card overflow-hidden">
+        <div class="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between" style="border-color:var(--line);">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Inventário</span>
+            <h2 class="display-font text-2xl font-bold">Chromebooks Cadastrados</h2>
+            <p id="cb-count" class="mt-0.5 text-xs opacity-70"></p>
+          </div>
+          <button id="add-chromebook-btn" class="btn btn-primary">
+            <i data-icon="plus" class="h-4 w-4"></i> Novo Chromebook
+          </button>
+        </div>
+        <div class="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center" style="border-color:var(--line); background:#faf8f0;">
+          <div class="relative flex-1">
+            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#537069]"><i data-icon="search" class="h-4 w-4"></i></span>
+            <input id="cb-search" type="text" placeholder="Buscar por nome, série, patrimônio ou modelo..." class="input !pl-10">
+          </div>
+          <select id="cb-cart-filter" class="select sm:w-56">
+            <option value="">Todos os carrinhos</option>
+          </select>
+          <select id="cb-status-filter" class="select sm:w-44">
+            <option value="">Todos os status</option>
+            <option value="disponivel">Disponível</option>
+            <option value="manutencao">Em manutenção</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+        <div id="cb-table-wrap" class="overflow-x-auto">
+          <p class="py-8 text-center text-xs opacity-60">Carregando Chromebooks...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= CARRINHOS ======================= -->
+    <section id="tab-carrinhos" class="tab-panel hidden">
+      <div class="card p-6">
+        <div class="mb-5 flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between" style="border-color:var(--line);">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Organização</span>
+            <h2 class="display-font text-2xl font-bold">Carrinhos de Chromebooks</h2>
+            <p class="mt-0.5 text-xs opacity-70">Cada carrinho comporta até 45 aparelhos. Atribua os Chromebooks na aba "Chromebooks".</p>
+          </div>
+          <button id="add-cart-btn" class="btn btn-primary">
+            <i data-icon="plus" class="h-4 w-4"></i> Novo Carrinho
+          </button>
+        </div>
+        <div id="carts-list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <p class="col-span-full py-6 text-center text-xs opacity-60">Carregando carrinhos...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= FORMULÁRIO ======================= -->
+    <section id="tab-formulario" class="tab-panel hidden">
+      <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="display-font text-2xl font-bold">Configuração do Formulário</h2>
+          <p class="mt-0.5 text-xs opacity-70">Personalize os campos que professores e visitantes preenchem ao agendar.</p>
+        </div>
+        <button id="save-config-btn" class="btn btn-primary btn-lg">
+          <i data-icon="save" class="h-4 w-4"></i> Salvar Alterações
+        </button>
+      </div>
+
+      <div id="config-missing-banner" class="mb-5 hidden rounded-xl border p-4 text-sm" style="border-color:var(--amber-line); background:#fff7d9; color:#6d5110;">
+        <strong>Atenção:</strong> a tabela <code>config_formulario</code> ainda não existe no Supabase.
+        Rode o arquivo <code>supabase/setup.sql</code> no SQL Editor para poder salvar as configurações.
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+
+        <!-- Editor de campos -->
+        <div class="card p-6">
+          <div class="mb-5 flex items-center justify-between border-b pb-4" style="border-color:var(--line);">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Campos</span>
+              <h3 class="display-font text-xl font-bold">Campos do Formulário</h3>
+            </div>
+            <button id="add-field-btn" class="btn btn-outline btn-sm">
+              <i data-icon="plus" class="h-4 w-4"></i> Adicionar Campo
+            </button>
+          </div>
+          <div id="field-editor" class="space-y-3"></div>
+        </div>
+
+        <!-- Horários e configurações -->
+        <div class="space-y-6">
+          <div class="card p-6">
+            <div class="mb-4 flex items-center justify-between border-b pb-4" style="border-color:var(--line);">
+              <div>
+                <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Grade</span>
+                <h3 class="display-font text-xl font-bold">Horários de Aula</h3>
+              </div>
+              <button id="add-slot-btn" class="btn btn-outline btn-sm"><i data-icon="plus" class="h-4 w-4"></i> Horário</button>
+            </div>
+            <div id="slots-editor" class="space-y-2"></div>
+          </div>
+
+          <div class="card p-6">
+            <div class="mb-4 border-b pb-4" style="border-color:var(--line);">
+              <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Regras</span>
+              <h3 class="display-font text-xl font-bold">Configurações Gerais</h3>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="label" for="cfg-limit-slot">Limite de Chromebooks por horário</label>
+                <input id="cfg-limit-slot" type="number" min="1" max="999" class="input">
+                <p class="mt-1 text-[11px] opacity-60">Ex.: 90 = dois carrinhos cheios por aula.</p>
+              </div>
+              <div>
+                <label class="label" for="cfg-notice">Antecedência mínima (horas)</label>
+                <input id="cfg-notice" type="number" min="0" max="720" class="input">
+              </div>
+              <div>
+                <label class="label" for="cfg-daily">Agendamentos diretos por dia (professor)</label>
+                <input id="cfg-daily" type="number" min="0" max="50" class="input">
+                <p class="mt-1 text-[11px] opacity-60">Acima desse número, a reserva vai para aprovação do Admin.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="../assets/js/page-admin.js"></script>
+</body>
+</html>
