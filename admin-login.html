@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acesso Administrativo — ChromeAgenda</title>
+
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("chromeagenda-theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (saved === "dark" || (!saved && prefersDark)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">🔐</span>
+        <span>ChromeAgenda · Admin</span>
+      </a>
+      <nav class="nav"><a href="index.html">Voltar ao site</a></nav>
+      <div class="header-actions">
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema">
+          <span class="ico-light">🌙</span>
+          <span class="ico-dark">☀️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container auth-wrap">
+      <div class="card auth-card">
+        <h1>Painel do Administrador</h1>
+        <p class="sub">Acesso restrito à coordenação.</p>
+
+        <form id="form-admin">
+          <div class="field">
+            <label for="admin-email">E-mail do administrador</label>
+            <input class="input" type="email" id="admin-email" placeholder="admin@escola.edu.br" required />
+          </div>
+          <div class="field">
+            <label for="admin-senha">Senha</label>
+            <input class="input" type="password" id="admin-senha" placeholder="••••••••" required />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Entrar como Admin</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Laboratório Móvel de Chromebooks · Agendamento Escolar</span>
+      <a class="admin-link" href="index.html">← Voltar ao site</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script>
+    const form = document.getElementById("form-admin");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      const email = document.getElementById("admin-email").value.trim();
+      const senha = document.getElementById("admin-senha").value;
+
+      btn.disabled = true;
+      btn.textContent = "Verificando...";
+
+      const { data, error } = await db.auth.signInWithPassword({ email, password: senha });
+
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = "Entrar como Admin";
+        return U.toast(
+          error.message === "Invalid login credentials"
+            ? "E-mail ou senha incorretos."
+            : error.message,
+          "error"
+        );
+      }
+
+      const { data: perfil } = await db
+        .from("perfis")
+        .select("cargo")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (perfil?.cargo !== "admin") {
+        await db.auth.signOut();
+        btn.disabled = false;
+        btn.textContent = "Entrar como Admin";
+        return U.toast("Esta conta não tem privilégios de administrador.", "error");
+      }
+
+      U.toast("Bem-vindo, administrador!", "success");
+      window.location.href = "admin/";
+    });
+  </script>
+</body>
+</html>
