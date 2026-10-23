@@ -1,155 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Acesso — Agendamento de Chromebooks</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar — ChromeAgenda</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/base.css">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("chromeagenda-theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (saved === "dark" || (!saved && prefersDark)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
 
-  <script src="https://cdn.tailwindcss.com/3.4.17" onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s);"></script>
-  <script src="assets/js/icons.js"></script>
-  <script src="assets/js/common.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
-<body class="paper-grid min-h-screen flex flex-col justify-between">
+<body>
 
-  <header class="w-full border-b px-5 py-4 md:px-10" style="border-color:var(--line);">
-    <div class="mx-auto flex max-w-7xl items-center justify-between">
-      <a href="index.html" class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#17352e] text-white">
-          <i data-icon="arrow-left" class="h-5 w-5"></i>
-        </div>
-        <span class="text-sm font-bold">Voltar ao Calendário</span>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">💻</span>
+        <span>ChromeAgenda</span>
       </a>
-      <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" rel="noopener" class="btn btn-what btn-sm">
-        <i data-icon="message-circle" class="h-4 w-4"></i> Suporte
-      </a>
+      <nav class="nav">
+        <a href="index.html">Início</a>
+      </nav>
+      <div class="header-actions">
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema">
+          <span class="ico-light">🌙</span>
+          <span class="ico-dark">☀️</span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="flex flex-1 items-center justify-center p-5">
-    <div class="card w-full max-w-md p-6">
+  <main>
+    <div class="container auth-wrap">
+      <div class="card auth-card">
+        <h1>Bem-vindo de volta</h1>
+        <p class="sub">Entre para agendar os Chromebooks da escola.</p>
 
-      <div class="mb-6 text-center">
-        <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#17352e] text-white">
-          <i data-icon="user-check" class="h-6 w-6"></i>
+        <div class="tabs">
+          <button class="tab active" data-tab="login" type="button">Entrar</button>
+          <button class="tab" data-tab="cadastro" type="button">Criar conta</button>
         </div>
-        <h1 class="display-font text-2xl font-bold">Área do Professor</h1>
-        <p class="mt-1 text-xs opacity-75">Acesse sua conta para agendar e gerenciar seus horários</p>
-      </div>
 
-      <div class="mb-6 flex rounded-xl border p-1" style="border-color:var(--line); background:var(--paper);">
-        <button id="tab-login" class="tab-btn w-1/2 justify-center bg-white text-[#17352e] shadow-sm">Já tenho conta</button>
-        <button id="tab-register" class="tab-btn w-1/2 justify-center opacity-70">Criar nova conta</button>
-      </div>
-
-      <form id="login-form" class="space-y-4">
-        <div>
-          <label class="label" for="login-email">E-mail Institucional</label>
-          <input id="login-email" type="email" required class="input" placeholder="professor@escola.com" autocomplete="email">
-        </div>
-        <div>
-          <label class="label" for="login-password">Senha</label>
-          <div class="relative">
-            <input id="login-password" type="password" required class="input pr-11" placeholder="••••••••" autocomplete="current-password">
-            <button type="button" class="pw-toggle absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#537069] hover:bg-[#f0ede1]" aria-label="Mostrar senha">
-              <i data-icon="eye" class="h-4 w-4"></i>
-            </button>
+        <!-- LOGIN -->
+        <form id="form-login">
+          <div class="field">
+            <label for="email">E-mail institucional</label>
+            <input class="input" type="email" id="email" placeholder="seu.nome@escola.edu.br" autocomplete="email" required />
           </div>
-        </div>
-        <div class="flex justify-end">
-          <button type="button" id="forgot-btn" class="text-xs font-bold text-[#c0562b] underline-offset-2 hover:underline">Esqueci minha senha</button>
-        </div>
-        <button id="login-btn" type="submit" class="btn btn-dark btn-lg w-full">
-          <i data-icon="log-in" class="h-4 w-4"></i> Entrar no Sistema
-        </button>
-      </form>
-
-      <form id="register-form" class="hidden space-y-4">
-        <div>
-          <label class="label" for="reg-name">Nome Completo</label>
-          <input id="reg-name" type="text" required class="input" placeholder="Prof. Carlos Andrade" autocomplete="name">
-        </div>
-        <div>
-          <label class="label" for="reg-email">E-mail Institucional</label>
-          <input id="reg-email" type="email" required class="input" placeholder="professor@escola.com" autocomplete="email">
-        </div>
-        <div>
-          <label class="label" for="reg-password">Criar Senha</label>
-          <div class="relative">
-            <input id="reg-password" type="password" required minlength="6" class="input pr-11" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-            <button type="button" class="pw-toggle absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#537069] hover:bg-[#f0ede1]" aria-label="Mostrar senha">
-              <i data-icon="eye" class="h-4 w-4"></i>
-            </button>
+          <div class="field">
+            <label for="senha">Senha</label>
+            <input class="input" type="password" id="senha" placeholder="••••••••" autocomplete="current-password" required />
           </div>
-        </div>
-        <button id="reg-btn" type="submit" class="btn btn-primary btn-lg w-full">
-          <i data-icon="user-plus" class="h-4 w-4"></i> Cadastrar e Entrar
-        </button>
-      </form>
+          <button class="btn btn-primary btn-block" type="submit">Entrar no Sistema</button>
+        </form>
 
-      <p id="auth-message" class="mt-4 min-h-[1.25rem] text-center text-xs font-semibold"></p>
+        <!-- CADASTRO -->
+        <form id="form-cadastro" hidden>
+          <div class="field">
+            <label for="cad-nome">Nome completo</label>
+            <input class="input" type="text" id="cad-nome" placeholder="Maria Silva" required />
+          </div>
+          <div class="field">
+            <label for="cad-email">E-mail institucional</label>
+            <input class="input" type="email" id="cad-email" placeholder="seu.nome@escola.edu.br" required />
+          </div>
+          <div class="field">
+            <label for="cad-senha">Senha (mínimo 6 caracteres)</label>
+            <input class="input" type="password" id="cad-senha" placeholder="••••••••" minlength="6" required />
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Criar conta</button>
+        </form>
+      </div>
     </div>
   </main>
 
-  <footer class="py-4 text-center text-xs opacity-60">
-    Laboratório Móvel de Chromebooks — Agendamento Escolar
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Laboratório Móvel de Chromebooks · Agendamento Escolar</span>
+      <a class="admin-link" href="admin-login.html">Acesso administrativo</a>
+    </div>
   </footer>
 
-  <script src="assets/js/page-login.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
 </body>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  const SUPABASE_URL = 'https://bwfumyculbfrmcahsbaz.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  document.querySelector('form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.querySelector('#email').value;
-    const senha = document.querySelector('#senha').value;
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
-    if (error) return alert('Erro: ' + error.message);
-
-    // Redireciona conforme o cargo (professor ou admin)
-    const { data: perfil } = await supabase
-      .from('perfis').select('cargo').eq('id', data.user.id).single();
-
-    window.location.href = perfil?.cargo === 'admin' ? 'admin/' : 'agendamento-usuario.html';
-  });
-async function carregarCalendario() {
-    const inicioSemana = new Date(); // ajustar para segunda-feira
-    const fimSemana = new Date(inicioSemana); fimSemana.setDate(fimSemana.getDate() + 6);
-
-    const { data: agendamentos, error } = await supabase
-      .from('agendamentos')
-      .select('*')
-      .gte('data', inicioSemana.toISOString().split('T')[0])
-      .lte('data', fimSemana.toISOString().split('T')[0]);
-
-    if (error) return console.error(error);
-
-    const container = document.querySelector('.calendario-grid'); // ajuste o seletor
-    container.innerHTML = ''; // limpa antes de renderizar
-
-    for (let i = 0; i < 7; i++) {
-      const dia = new Date(inicioSemana);
-      dia.setDate(dia.getDate() + i);
-      const celula = document.createElement('div');
-      celula.className = 'dia-calendario';
-      celula.textContent = dia.getDate();
-
-      // Marca dias com agendamentos
-      if (agendamentos.some(a => a.data === dia.toISOString().split('T')[0])) {
-        celula.classList.add('ocupado');
-      }
-      container.appendChild(celula);
-    }
-  }
-  carregarCalendario();
-</script>
 </html>
