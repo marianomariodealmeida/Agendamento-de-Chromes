@@ -50,29 +50,22 @@
         <p class="card-sub">Solicite o uso do carrinho de Chromebooks.</p>
 
         <form id="form-agendamento" name="agendamento">
-          <div class="field">
-            <label for="data">Data</label>
-            <input class="input" type="date" id="data" name="data" required />
-          </div>
-          <div class="form-row">
-            <div class="field">
-              <label for="periodo">Período</label>
-              <select class="select" id="periodo" name="periodo" required>
-                <option value="manha">Manhã</option>
-                <option value="tarde">Tarde</option>
-                <option value="noite">Noite</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="quantidade">Quantidade</label>
-              <input class="input" type="number" id="quantidade" name="quantidade" value="1" min="1" max="40" required />
-            </div>
-          </div>
-          <div class="field">
-            <label for="sala">Sala / Turma</label>
-            <input class="input" type="text" id="sala" name="sala" placeholder="Ex.: Sala 12 — 9ºB" />
-          </div>
-          <div class="field">
+         <div class="field">
+    <label for="turma">Turma</label>
+    <select class="select" id="turma" name="turma" required></select>
+  </div>
+
+  <div class="field">
+    <label for="carrinho">Carrinho</label>
+    <select class="select" id="carrinho" name="carrinho" required></select>
+  </div>
+
+  <div class="field">
+    <label for="horario">Horário de aula</label>
+    <select class="select" id="horario" name="horario" required disabled></select>
+  </div>
+
+  <div id="aviso-bloqueio" class="empty" style="display:none"></div>
             <label for="observacoes">Observações (opcional)</label>
             <textarea class="textarea" id="observacoes" name="observacoes" placeholder="Alguma necessidade específica?"></textarea>
           </div>
