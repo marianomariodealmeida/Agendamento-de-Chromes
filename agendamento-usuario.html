@@ -1,92 +1,115 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel do Professor — Agendamentos</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meu Painel — ChromeAgenda</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/base.css">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("chromeagenda-theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (saved === "dark" || (!saved && prefersDark)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
 
-  <script src="https://cdn.tailwindcss.com/3.4.17" onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s);"></script>
-  <script src="assets/js/icons.js"></script>
-  <script src="assets/js/common.js"></script>
-  <script src="assets/js/form-config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
-<body class="paper-grid min-h-screen">
+<body>
 
-  <header class="w-full border-b px-5 py-4 md:px-10" style="border-color:var(--line); background:rgba(244,241,232,0.9);">
-    <div class="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#17352e] text-white hover:opacity-90" title="Voltar ao calendário">
-          <i data-icon="arrow-left" class="h-5 w-5"></i>
-        </a>
-        <div>
-          <p class="text-[10px] font-bold uppercase tracking-[0.16em] opacity-70">Painel Restrito</p>
-          <h1 id="welcome-title" class="display-font text-xl font-bold">Carregando perfil...</h1>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <a id="admin-link" href="admin/index.html" class="btn btn-dark btn-sm hidden">
-          <i data-icon="shield-check" class="h-4 w-4"></i> Painel Admin
-        </a>
-        <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" rel="noopener" class="btn btn-what btn-sm">
-          <i data-icon="message-circle" class="h-4 w-4"></i> Suporte
-        </a>
-        <button id="logout-btn" class="btn btn-danger btn-sm">
-          <i data-icon="log-out" class="h-4 w-4"></i> Sair
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">💻</span>
+        <span>ChromeAgenda</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html">Início</a>
+        <a href="index.html#calendario">Calendário</a>
+      </nav>
+      <div class="header-actions">
+        <div id="user-area" style="display:flex;gap:.5rem;align-items:center"></div>
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema">
+          <span class="ico-light">🌙</span>
+          <span class="ico-dark">☀️</span>
         </button>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-7xl px-5 py-7 md:px-10">
-    <div class="grid gap-8 lg:grid-cols-[1fr_1.3fr]">
+  <main>
+    <div class="container" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:1.5rem;align-items:start">
+      <div class="card">
+        <h2 class="card-title">Novo agendamento</h2>
+        <p class="card-sub">Solicite o uso do carrinho de Chromebooks.</p>
 
-      <!-- Novo agendamento -->
-      <section class="card p-6">
-        <div class="mb-5 border-b pb-4" style="border-color:var(--line);">
-          <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#dd6a3c]">Nova Reserva</span>
-          <h2 class="display-font text-2xl font-bold">Agendar Chromebooks</h2>
-          <p id="limit-info" class="mt-1 text-xs opacity-75"></p>
-        </div>
-
-        <div id="booking-form-slot" class="space-y-4"></div>
-
-        <p id="form-msg" class="mt-4 min-h-[1.25rem] text-center text-xs font-semibold"></p>
-      </section>
-
-      <!-- Histórico -->
-      <section class="card flex flex-col justify-between p-6">
-        <div>
-          <div class="mb-5 flex items-center justify-between border-b pb-4" style="border-color:var(--line);">
-            <div>
-              <span class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Histórico</span>
-              <h2 class="display-font text-2xl font-bold">Minhas Reservas</h2>
-            </div>
-            <span id="history-count" class="chip">0 reservas</span>
+        <form id="form-agendamento" name="agendamento">
+          <div class="field">
+            <label for="data">Data</label>
+            <input class="input" type="date" id="data" name="data" required />
           </div>
-
-          <div id="my-bookings-list" class="max-h-[520px] space-y-3 overflow-y-auto pr-1">
-            <div class="space-y-3">
-              <div class="skeleton h-14 w-full"></div>
-              <div class="skeleton h-14 w-full"></div>
-              <div class="skeleton h-14 w-full"></div>
+          <div class="form-row">
+            <div class="field">
+              <label for="periodo">Período</label>
+              <select class="select" id="periodo" name="periodo" required>
+                <option value="manha">Manhã</option>
+                <option value="tarde">Tarde</option>
+                <option value="noite">Noite</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="quantidade">Quantidade</label>
+              <input class="input" type="number" id="quantidade" name="quantidade" value="1" min="1" max="40" required />
             </div>
           </div>
-        </div>
+          <div class="field">
+            <label for="sala">Sala / Turma</label>
+            <input class="input" type="text" id="sala" name="sala" placeholder="Ex.: Sala 12 — 9ºB" />
+          </div>
+          <div class="field">
+            <label for="observacoes">Observações (opcional)</label>
+            <textarea class="textarea" id="observacoes" name="observacoes" placeholder="Alguma necessidade específica?"></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Solicitar agendamento</button>
+        </form>
+      </div>
 
-        <div class="mt-6 flex items-start gap-2 rounded-xl border p-3 text-xs" style="border-color:var(--amber-line); background:#fff7d9; color:#6d5110;">
-          <i data-icon="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
-          <span id="history-note">Você pode cancelar seus agendamentos a qualquer momento nesta lista.</span>
+      <div class="card">
+        <h2 class="card-title">Meus agendamentos</h2>
+        <p class="card-sub">Acompanhe o status das suas solicitações.</p>
+        <div class="list" id="meus-agendamentos">
+          <p class="empty">Carregando…</p>
         </div>
-      </section>
-
+      </div>
     </div>
   </main>
 
-  <script src="assets/js/page-usuario.js"></script>
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Laboratório Móvel de Chromebooks · Agendamento Escolar</span>
+      <a class="admin-link" href="admin-login.html">Acesso administrativo</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/guard.js"></script>
+  <script src="assets/js/agendamento.js"></script>
+  <script>
+    Auth.renderHeaderUser("#user-area", {
+      loginHref: "login.html",
+      painelHref: "agendamento-usuario.html",
+      adminHref: "admin/",
+      afterLogout: "index.html",
+    });
+  </script>
 </body>
 </html>
