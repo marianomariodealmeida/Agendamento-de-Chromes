@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChromeAgenda — Agendamento de Chromebooks</title>
 
+  <!-- Anti-FOUC do tema (evita flash claro→escuro) -->
   <script>
     (function () {
       try {
@@ -22,15 +23,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
-<script src="assets/js/site-config.js"></script>
-<script src="assets/js/banners.js"></script>
-<script>
-  (async () => {
-    const cfg = await SiteConfig.carregar();
-    SiteConfig.aplicar(cfg);
-    await Banners.renderHero("#hero-visual");
-  })();
-</script>
 <body>
 
   <header class="site-header">
@@ -57,21 +49,23 @@
   </header>
 
   <main>
-  <section class="container hero">
-    <div>
-      <h1 data-home-title>Reserve os <span>Chromebooks</span> da escola em segundos.</h1>
-      <p data-home-subtitle></p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="agendamento-usuario.html" data-btn-primary>Fazer agendamento</a>
-        <a class="btn btn-ghost" href="#calendario" data-btn-secondary>Ver calendário</a>
+    <section class="container hero">
+      <div>
+        <h1 data-home-title>Reserve os <span>Chromebooks</span> da escola em segundos.</h1>
+        <p data-home-subtitle>
+          Consulte a disponibilidade do carrinho móvel, faça sua solicitação e acompanhe
+          a aprovação — tudo em um só lugar, sem papel e sem conflito de horários.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="agendamento-usuario.html" data-btn-primary>Fazer agendamento</a>
+          <a class="btn btn-ghost" href="#calendario" data-btn-secondary>Ver calendário</a>
+        </div>
       </div>
-    </div>
-    <div class="hero-visual" id="hero-visual">
-      <span class="glyph">💻</span>
-    </div>
-  </section>
-  <!-- resto igual -->
-</main>
+      <div class="hero-visual" id="hero-visual">
+        <!-- O JS substitui pelo slider de banners ou mantém o fallback abaixo -->
+        <span class="glyph">💻</span>
+      </div>
+    </section>
 
     <section class="container" id="calendario">
       <div class="card">
@@ -114,19 +108,40 @@
     </div>
   </div>
 
+  <!-- ============ SCRIPTS (no final do body) ============ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/utils.js"></script>
   <script src="assets/js/theme.js"></script>
   <script src="assets/js/guard.js"></script>
+  <script src="assets/js/site-config.js"></script>
+  <script src="assets/js/banners.js"></script>
   <script src="assets/js/calendar.js"></script>
   <script>
-    Auth.renderHeaderUser("#user-area", {
-      loginHref: "login.html",
-      painelHref: "agendamento-usuario.html",
-      adminHref: "admin/",
-      afterLogout: "index.html",
-    });
+    (async () => {
+      // 1) aplica configurações (nome, textos, cores)
+      try {
+        const cfg = await SiteConfig.carregar();
+        SiteConfig.aplicar(cfg);
+      } catch (err) {
+        console.warn("[index] config:", err);
+      }
+
+      // 2) hero: slider de banners ou fallback 💻
+      try {
+        await Banners.renderHero("#hero-visual");
+      } catch (err) {
+        console.warn("[index] banners:", err);
+      }
+
+      // 3) área do usuário no cabeçalho
+      Auth.renderHeaderUser("#user-area", {
+        loginHref: "login.html",
+        painelHref: "agendamento-usuario.html",
+        adminHref: "admin/",
+        afterLogout: "index.html",
+      });
+    })();
   </script>
 </body>
 </html>
