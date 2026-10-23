@@ -9,17 +9,26 @@ Sistema web de agendamento de Chromebooks para o Laboratório Móvel da escola, 
 ## 📁 Estrutura
 
 ```
-├── index.html                  → Calendário público de disponibilidade
-├── login.html                  → Login / cadastro / recuperação de senha
-├── agendamento-usuario.html    → Painel do professor (agendar + histórico)
-├── agendamento-visitante.html  → Solicitação sem login (vai para aprovação)
-├── admin.html                  → Redireciona para admin/
-├── admin/
-│   └── index.html              → Painel do administrador
+/
+├── index.html
+├── login.html
+├── admin-login.html
+├── agendamento-usuario.html
 ├── assets/
-│   ├── css/base.css            → Estilos do sistema
-│   └── js/                     → Ícones embutidos + lógica das páginas
-└── supabase/
+│   ├── css/
+│   │   └── styles.css
+│   └── js/
+│       ├── supabase-client.js
+│       ├── utils.js
+│       ├── theme.js
+│       ├── guard.js
+│       ├── auth.js
+│       ├── calendar.js
+│       ├── agendamento.js
+│       └── admin.js
+├── admin/
+│   └── index.html
+└── README.md
     └── setup.sql               → ⭐ Script de criação do banco (RODE ISTO!)
 ```
 
