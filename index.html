@@ -1,90 +1,122 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agendamento de Chromebooks — Calendário</title>
-  <meta name="description" content="Consulte a disponibilidade e agende o uso dos Chromebooks da escola.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%92%BB%3C/text%3E%3C/svg%3E">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChromeAgenda — Agendamento de Chromebooks</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/base.css">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("chromeagenda-theme");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (saved === "dark" || (!saved && prefersDark)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
 
-  <script src="https://cdn.tailwindcss.com/3.4.17" onerror="this.remove();var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.remove();var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2';document.head.appendChild(s);"></script>
-  <script src="assets/js/icons.js"></script>
-  <script src="assets/js/common.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
-<body class="paper-grid min-h-screen flex flex-col">
+<body>
 
-  <header class="w-full border-b border-[#17352e] bg-[#17352e] text-white">
-    <div class="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-5 md:px-10 lg:flex-row lg:items-center lg:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#dd6a3c] shadow-md">
-          <i data-icon="laptop" class="h-6 w-6"></i>
-        </div>
-        <div>
-          <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#e8b49b]">Laboratório Móvel</p>
-          <h1 class="display-font text-xl font-bold leading-tight sm:text-2xl">Agendamento de Chromebooks</h1>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <a href="https://chat.whatsapp.com/E811s3sroHGFl1u8FvMY44" target="_blank" rel="noopener" class="btn btn-what btn-sm">
-          <i data-icon="message-circle" class="h-4 w-4"></i> Suporte
-        </a>
-        <a id="login-nav-btn" href="login.html" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.12);">
-          <i data-icon="user" class="h-4 w-4"></i> <span id="login-btn-text">Entrar / Login</span>
-        </a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">💻</span>
+        <span>ChromeAgenda</span>
+      </a>
+
+      <nav class="nav">
+        <a href="index.html">Início</a>
+        <a href="#calendario">Calendário</a>
+        <a href="agendamento-usuario.html">Meu painel</a>
+      </nav>
+
+      <div class="header-actions">
+        <div id="user-area" style="display:flex;gap:.5rem;align-items:center"></div>
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+          <span class="ico-light">🌙</span>
+          <span class="ico-dark">☀️</span>
+        </button>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto w-full max-w-7xl flex-1 px-5 py-7 md:px-10">
-
-    <!-- Cartão de boas-vindas -->
-    <div class="card mb-6 flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+  <main>
+    <section class="container hero">
       <div>
-        <h2 class="display-font text-2xl font-bold">Consulta de Disponibilidade</h2>
-        <p class="mt-1 text-sm opacity-75">Veja os horários ocupados nesta semana e solicite o uso dos aparelhos.</p>
-      </div>
-      <div class="flex flex-col gap-2 sm:flex-row">
-        <a id="action-book-btn" href="agendamento-visitante.html" class="btn btn-primary btn-lg">
-          <i data-icon="calendar-plus" class="h-4 w-4"></i> <span>Solicitar Agendamento</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- Calendário semanal -->
-    <section class="card overflow-hidden">
-      <div class="flex flex-col gap-4 border-b p-5 md:flex-row md:items-center md:justify-between" style="border-color:var(--line);">
-        <div>
-          <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#277a74]">Visão Geral</p>
-          <h3 id="week-range" class="display-font text-xl font-bold"></h3>
-          <p id="week-summary" class="mt-0.5 text-xs opacity-70"></p>
-        </div>
-        <div class="flex items-center gap-1.5 rounded-xl border p-1" style="border-color:var(--line); background:#f6f3e9;">
-          <button id="prev-week" class="btn btn-ghost btn-sm"><i data-icon="chevron-left" class="h-3.5 w-3.5"></i> Anterior</button>
-          <button id="today-btn" class="btn btn-dark btn-sm">Hoje</button>
-          <button id="next-week" class="btn btn-ghost btn-sm">Próxima <i data-icon="chevron-right" class="h-3.5 w-3.5"></i></button>
+        <h1>Reserve os <span>Chromebooks</span> da escola em segundos.</h1>
+        <p>
+          Consulte a disponibilidade do carrinho móvel, faça sua solicitação e acompanhe
+          a aprovação — tudo em um só lugar, sem papel e sem conflito de horários.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="agendamento-usuario.html">Fazer agendamento</a>
+          <a class="btn btn-ghost" href="#calendario">Ver calendário</a>
         </div>
       </div>
+      <div class="hero-visual"><span class="glyph">💻</span></div>
+    </section>
 
-      <div class="overflow-x-auto p-4" id="calendar-scroll">
-        <div id="week-grid" class="week-grid overflow-hidden rounded-xl border" style="border-color:var(--line);"></div>
+    <section class="container" id="calendario">
+      <div class="card">
+        <h2 class="card-title">Calendário de agendamentos</h2>
+        <p class="card-sub">Clique em um dia para ver os detalhes.</p>
+
+        <div class="cal-toolbar">
+          <button id="cal-prev" class="btn btn-ghost btn-sm" aria-label="Mês anterior">‹ Anterior</button>
+          <button id="cal-today" class="btn btn-ghost btn-sm">Hoje</button>
+          <button id="cal-next" class="btn btn-ghost btn-sm" aria-label="Próximo mês">Próximo ›</button>
+          <span class="cal-label" id="calendar-label"></span>
+        </div>
+
+        <div class="calendar-grid" id="calendar-grid"></div>
+
+        <div class="cal-legend">
+          <span><span class="legend-dot dot-manha"></span>Manhã</span>
+          <span><span class="legend-dot dot-tarde"></span>Tarde</span>
+          <span><span class="legend-dot dot-noite"></span>Noite</span>
+        </div>
       </div>
-
-      <footer class="flex flex-wrap items-center gap-4 border-t px-5 py-3 text-xs font-medium" style="border-color:var(--line);">
-        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" style="background:#277a74;"></span> Confirmado</span>
-        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full" style="background:#d5a52a;"></span> Pendente de Aprovação</span>
-        <span id="limit-note" class="ml-auto opacity-70"></span>
-      </footer>
     </section>
   </main>
 
-  <footer class="border-t py-5 text-center text-xs opacity-60" style="border-color:var(--line);">
-    Laboratório Móvel de Chromebooks — Agendamento Escolar
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Laboratório Móvel de Chromebooks · Agendamento Escolar</span>
+      <a class="admin-link" href="admin-login.html">Acesso administrativo</a>
+    </div>
   </footer>
 
-  <script src="assets/js/page-home.js"></script>
+  <!-- Modal do dia -->
+  <div class="modal" id="day-modal" hidden>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="day-modal-title"></h3>
+        <button class="modal-close" id="day-modal-close" aria-label="Fechar">×</button>
+      </div>
+      <div id="day-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-client.js"></script>
+  <script src="assets/js/utils.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/guard.js"></script>
+  <script src="assets/js/calendar.js"></script>
+  <script>
+    Auth.renderHeaderUser("#user-area", {
+      loginHref: "login.html",
+      painelHref: "agendamento-usuario.html",
+      adminHref: "admin/",
+      afterLogout: "index.html",
+    });
+  </script>
 </body>
 </html>
