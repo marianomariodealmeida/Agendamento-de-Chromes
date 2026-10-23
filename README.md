@@ -1,95 +1,136 @@
-# Agendamento de Chromebooks 💻
+# ChromeAgenda — Agendamento de Chromebooks
 
-Sistema web de agendamento de Chromebooks para o Laboratório Móvel da escola, com calendário público de disponibilidade, painel do professor, solicitações de visitantes e painel administrativo completo.
+Sistema de agendamento do carrinho móvel de Chromebooks, feito em HTML + CSS + JS puro com **Supabase** como backend.
 
-**Stack:** HTML + JavaScript puro (sem build) · Tailwind (CDN) · [Supabase](https://supabase.com) (banco + autenticação) · hospedagem no GitHub Pages.
+## 1. Configuração do Supabase
 
----
+1. Crie um projeto em https://supabase.com
+2. Vá em **SQL Editor** e execute o script abaixo.
+3. Copie a **Project URL** e a **anon public key** (Settings → API) para `assets/js/supabase-client.js`.
 
-## 📁 Estrutura
-
-```
-/
-├── index.html
-├── login.html
-├── admin-login.html
-├── agendamento-usuario.html
-├── assets/
-│   ├── css/
-│   │   └── styles.css
-│   └── js/
-│       ├── supabase-client.js
-│       ├── utils.js
-│       ├── theme.js
-│       ├── guard.js
-│       ├── auth.js
-│       ├── calendar.js
-│       ├── agendamento.js
-│       └── admin.js
-├── admin/
-│   └── index.html
-└── README.md
-    └── setup.sql               → ⭐ Script de criação do banco (RODE ISTO!)
-```
-
-## 🗄️ 1. Configurar o Supabase (obrigatório)
-
-1. Acesse [supabase.com/dashboard](https://supabase.com/dashboard) e abra o seu projeto.
-2. No menu lateral, clique em **SQL Editor → New query**.
-3. Cole **todo o conteúdo** de [`supabase/setup.sql`](supabase/setup.sql) e clique em **Run**.
-4. O script cria (sem apagar dados existentes):
-   - `perfis` — nome, cargo (`professor`/`admin`);
-   - `agendamentos` — as reservas (mantém a tabela que já existia e adiciona `campos_extras`);
-   - `chromebooks` — nome, nº de série, nº patrimônio/atribuído, modelo, carrinho e status;
-   - `carrinhos` — grupos de **até 45 Chromebooks** com nome e limite;
-   - `config_formulario` — campos/horários/regras do formulário editáveis pelo admin;
-   - Políticas de segurança (RLS), criação automática de perfil ao cadastrar e tempo real.
-
-### Tornar-se administrador
-Crie sua conta pela página de login e depois rode no SQL Editor:
+### SQL (schema + RLS + trigger)
 
 ```sql
-insert into public.perfis (id, email, nome_completo, cargo)
-select id, email, coalesce(raw_user_meta_data ->> 'nome_completo', split_part(email, '@', 1)), 'admin'
-from auth.users
-where email = 'seuemail@escola.com'
-on conflict (id) do update set cargo = 'admin';
+-- ============ TABELAS ============
+create table if not exists public.perfis (
+  id uuid primary key references auth.users(id) on delete cascade,
+  nome text,
+  email text,
+  cargo text not null default 'professor' check (cargo in ('professor','admin')),
+  created_at timestamptz default now()
+);
+
+create table if not exists public.agendamentos (
+  id uuid primary key default gen_random_uuid(),
+  usuario_id uuid references auth.users(id) on delete cascade,
+  professor_nome text,
+  data date not null,
+  periodo text not null check (periodo in ('manha','tarde','noite')),
+  quantidade int not null default 1 check (quantidade between 1 and 40),
+  sala text,
+  observacoes text,
+  status text not null default 'pendente' check (status in ('pendente','aprovado','cancelado')),
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_agendamentos_data on public.agendamentos (data);
+
+-- ============ HELPER: é admin? ============
+create or replace function public.is_admin()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.perfis where id = auth.uid() and cargo = 'admin'
+  );
+$$;
+
+-- ============ RLS ============
+alter table public.perfis enable row level security;
+alter table public.agendamentos enable row level security;
+
+-- perfis
+drop policy if exists "perfil_select_proprio" on public.perfis;
+create policy "perfil_select_proprio" on public.perfis
+  for select using (auth.uid() = id);
+
+drop policy if exists "perfil_insert_proprio" on public.perfis;
+create policy "perfil_insert_proprio" on public.perfis
+  for insert with check (auth.uid() = id);
+
+drop policy if exists "perfil_update_proprio" on public.perfis;
+create policy "perfil_update_proprio" on public.perfis
+  for update using (auth.uid() = id);
+
+drop policy if exists "perfil_admin_ve_todos" on public.perfis;
+create policy "perfil_admin_ve_todos" on public.perfis
+  for select using (public.is_admin());
+
+-- agendamentos
+drop policy if exists "ag_select_publico" on public.agendamentos;
+create policy "ag_select_publico" on public.agendamentos
+  for select using (true);          -- calendário público (só leitura)
+
+drop policy if exists "ag_insert_proprio" on public.agendamentos;
+create policy "ag_insert_proprio" on public.agendamentos
+  for insert with check (auth.uid() = usuario_id);
+
+drop policy if exists "ag_update_proprio" on public.agendamentos;
+create policy "ag_update_proprio" on public.agendamentos
+  for update using (auth.uid() = usuario_id);
+
+drop policy if exists "ag_admin_gerencia" on public.agendamentos;
+create policy "ag_admin_gerencia" on public.agendamentos
+  for update using (public.is_admin());
+
+-- ============ TRIGGER: cria perfil ao registrar ============
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.perfis (id, nome, email, cargo)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'nome', new.email),
+    new.email,
+    'professor'
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 ```
 
-### Autenticação (opcional, recomendado)
-Em **Authentication → URL Configuration**, defina o *Site URL* como o endereço do site no GitHub Pages (ex.: `https://seuusuario.github.io/Agendamento-de-Chromes/`) para o link de recuperação de senha funcionar.
+### Promover um usuário a administrador
 
-## 🌐 2. Publicar no GitHub Pages
+Cadastre-se normalmente pelo site e depois rode no SQL Editor:
 
-1. Suba o conteúdo da pasta para o repositório (a raiz do repositório deve ter o `index.html`).
-2. No repositório: **Settings → Pages → Branch: `main` (ou `master`) → pasta `/ (root)` → Save**.
-3. Pronto — o site fica em `https://seuusuario.github.io/nome-do-repositorio/`.
+```sql
+update public.perfis set cargo = 'admin' where email = 'seu.email@escola.edu.br';
+```
 
-> As páginas usam apenas links relativos, então funcionam em qualquer caminho.
+Depois disso, o login por `admin-login.html` já funciona.
 
-## ✨ Funcionalidades
+## 2. Estrutura
 
-| Página | O que faz |
-| --- | --- |
-| **Calendário** | Mostra a semana (seg–sex) com os horários configurados, quantidade reservada por aula (ex.: `38/90`), legenda e atualização em tempo real. |
-| **Professor** | Agenda com formulário dinâmico, valida 24 h de antecedência, fim de semana, capacidade do horário e reserva duplicada. A partir do limite diário (padrão: 3), a reserva entra como **pendente**. Permite cancelar. |
-| **Visitante** | Qualquer pessoa solicita sem login; a solicitação sempre vai para **aprovação do admin**. |
-| **Admin → Reservas** | Aprova/recusa pendências, exclui confirmados, busca e exporta CSV. |
-| **Admin → Chromebooks** | Cadastra/edita/exclui aparelhos com **nome, nº de série, nº patrimônio, modelo**, carrinho e status. |
-| **Admin → Carrinhos** | Cria/edita/exclui **carrinhos de até 45 aparelhos**, com barra de ocupação. |
-| **Admin → Formulário** | Edita os **campos do formulário** (rótulo, obrigatório, ativo, ordem, opções), adiciona campos personalizados, edita os **horários de aula** e as regras (limite por horário, antecedência, limite diário). |
+```
+index.html                  → página inicial + calendário público
+login.html                  → login/cadastro de professores
+admin-login.html            → login exclusivo do administrador
+agendamento-usuario.html    → painel do professor
+admin/index.html            → dashboard do administrador
+assets/css/styles.css       → tema claro/escuro + componentes
+assets/js/*.js              → módulos (supabase, tema, auth, calendário, admin)
+```
 
-## 🔧 Solução de problemas
+## 3. Dicas
 
-- **"Tabela não encontrada"** → o `supabase/setup.sql` não foi executado. Rode-o no SQL Editor.
-- **"Permissão negada (RLS)"** → rode novamente o `setup.sql` (ele recria as políticas).
-- **Aprovação de visitantes não aparece** → confirme que o usuário tem `cargo = 'admin'` na tabela `perfis`.
-- **Recuperação de senha sem e-mail** → configure o *Site URL* em Authentication → URL Configuration.
-- **Calendário sem dados após editar horários** → reservas antigas guardam o texto do horário antigo; edite os horários antes de começar a usar.
-
-## 🧱 Detalhes técnicos
-
-- Os **ícones são SVG embutidos** no `assets/js/icons.js` (traçados do Lucide, licença ISC) — nunca dependem de CDN.
-- O formulário de agendamento é **gerado a partir da tabela `config_formulario`**; se a tabela não existir, o site usa uma configuração padrão e continua funcionando.
-- Campos personalizados criados pelo admin são salvos em `agendamentos.campos_extras` (JSONB).
-- A capacidade padrão é de **90 aparelhos por horário** (dois carrinhos cheios).
+- Se o Supabase estiver com **"Confirm email" ativado** (padrão), o usuário precisa confirmar o e-mail antes do primeiro login. Para testes, desative em *Authentication → Providers → Email*.
+- Em *Authentication → URL Configuration*, adicione a URL do seu GitHub Pages em **Site URL** e **Redirect URLs**.
+- O modo escuro é salvo em `localStorage` com a chave `chromeagenda-theme`.
