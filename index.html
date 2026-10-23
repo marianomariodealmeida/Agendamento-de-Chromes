@@ -22,6 +22,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
+<script src="assets/js/site-config.js"></script>
+<script src="assets/js/banners.js"></script>
+<script>
+  (async () => {
+    const cfg = await SiteConfig.carregar();
+    SiteConfig.aplicar(cfg);
+    await Banners.renderHero("#hero-visual");
+  })();
+</script>
 <body>
 
   <header class="site-header">
@@ -48,20 +57,21 @@
   </header>
 
   <main>
-    <section class="container hero">
-      <div>
-        <h1>Reserve os <span>Chromebooks</span> da escola em segundos.</h1>
-        <p>
-          Consulte a disponibilidade do carrinho móvel, faça sua solicitação e acompanhe
-          a aprovação — tudo em um só lugar, sem papel e sem conflito de horários.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="agendamento-usuario.html">Fazer agendamento</a>
-          <a class="btn btn-ghost" href="#calendario">Ver calendário</a>
-        </div>
+  <section class="container hero">
+    <div>
+      <h1 data-home-title>Reserve os <span>Chromebooks</span> da escola em segundos.</h1>
+      <p data-home-subtitle></p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="agendamento-usuario.html" data-btn-primary>Fazer agendamento</a>
+        <a class="btn btn-ghost" href="#calendario" data-btn-secondary>Ver calendário</a>
       </div>
-      <div class="hero-visual"><span class="glyph">💻</span></div>
-    </section>
+    </div>
+    <div class="hero-visual" id="hero-visual">
+      <span class="glyph">💻</span>
+    </div>
+  </section>
+  <!-- resto igual -->
+</main>
 
     <section class="container" id="calendario">
       <div class="card">
