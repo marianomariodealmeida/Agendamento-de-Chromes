@@ -15,6 +15,8 @@
     })();
   </script>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/css/styles.css" />
 </head>
@@ -30,7 +32,10 @@
       <div class="header-actions">
         <span style="font-size:.85rem;color:var(--muted)" id="admin-nome"></span>
         <button class="btn btn-ghost btn-sm" id="btn-sair">Sair</button>
-        <button id="theme-toggle" class="btn-icon"><span class="ico-light">🌙</span><span class="ico-dark">☀️</span></button>
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema">
+          <span class="ico-light">🌙</span>
+          <span class="ico-dark">☀️</span>
+        </button>
       </div>
     </div>
   </header>
@@ -92,7 +97,7 @@
                 </div>
               </div>
             </div>
-            <button class="btn btn-primary btn-block">Salvar alterações</button>
+            <button class="btn btn-primary btn-block" type="submit">Salvar alterações</button>
           </form>
         </div>
 
@@ -102,7 +107,7 @@
 
           <form id="form-banner" style="margin-bottom:1rem">
             <div class="field">
-              <label>Imagem (URL ou upload)</label>
+              <label>Imagem (URL)</label>
               <input class="input" name="url" placeholder="https://..." />
             </div>
             <div class="field">
@@ -113,7 +118,7 @@
               <label>Título (opcional)</label>
               <input class="input" name="titulo" />
             </div>
-            <button class="btn btn-primary btn-block">Adicionar banner</button>
+            <button class="btn btn-primary btn-block" type="submit">Adicionar banner</button>
           </form>
 
           <div class="list" id="lista-banners"></div>
@@ -177,7 +182,7 @@
                 <option value="inativo">Inativo</option>
               </select>
             </div>
-            <button class="btn btn-primary btn-block">Adicionar</button>
+            <button class="btn btn-primary btn-block" type="submit">Adicionar</button>
           </form>
         </div>
 
@@ -216,7 +221,7 @@
               <label>Localização</label>
               <input class="input" name="localizacao" placeholder="Ex.: Sala dos professores" />
             </div>
-            <button class="btn btn-primary btn-block">Criar carrinho</button>
+            <button class="btn btn-primary btn-block" type="submit">Criar carrinho</button>
           </form>
         </div>
 
@@ -228,7 +233,7 @@
       </div>
     </div>
 
-    <!-- ============ ABA AGENDAMENTOS (mantida da v1) ============ -->
+    <!-- ============ ABA AGENDAMENTOS ============ -->
     <div class="admin-panel" id="panel-agendamentos" hidden>
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
@@ -288,7 +293,7 @@
                 <option value="">Todos os carrinhos</option>
               </select>
             </div>
-            <button class="btn btn-primary btn-block">Adicionar evento</button>
+            <button class="btn btn-primary btn-block" type="submit">Adicionar evento</button>
           </form>
 
           <div class="list" id="lista-eventos" style="margin-top:1rem"></div>
@@ -303,13 +308,13 @@
                 <label>Horas de bloqueio (padrão 24)</label>
                 <input class="input" type="number" min="0" name="bloqueio_horas" required />
               </div>
-              <button class="btn btn-primary">Salvar bloqueio</button>
+              <button class="btn btn-primary" type="submit">Salvar bloqueio</button>
             </form>
           </div>
 
           <div class="card">
             <h2 class="card-title">Horários de aula por segmento</h2>
-            <p class="card-sub">Defina os horários de cada segmento. Aparecem no formulário de agendamento.</p>
+            <p class="card-sub">Aparecem no formulário de agendamento conforme a turma do professor.</p>
 
             <form id="form-horario" style="margin-bottom:1rem">
               <div class="grid-2">
@@ -342,7 +347,7 @@
                 <label>Ordem</label>
                 <input class="input" type="number" name="ordem" value="0" />
               </div>
-              <button class="btn btn-primary btn-block">Adicionar horário</button>
+              <button class="btn btn-primary btn-block" type="submit">Adicionar horário</button>
             </form>
 
             <div id="lista-horarios"></div>
@@ -378,7 +383,7 @@
               </select>
             </div>
           </div>
-          <button class="btn btn-primary">Adicionar turma</button>
+          <button class="btn btn-primary" type="submit">Adicionar turma</button>
         </form>
 
         <div class="table-wrap">
@@ -401,6 +406,7 @@
     </div>
   </footer>
 
+  <!-- ============ SCRIPTS (no final do body, na ordem correta) ============ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../assets/js/supabase-client.js"></script>
   <script src="../assets/js/utils.js"></script>
