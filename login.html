@@ -101,4 +101,25 @@
 
   <script src="assets/js/page-login.js"></script>
 </body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://bwfumyculbfrmcahsbaz.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZnVteWN1bGJmcm1jYWhzYmF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDI5MDAsImV4cCI6MjEwMzE3ODkwMH0.Tl4bloBoLMiKgchmEqhtGP8dEFZPYB-jSX7q0m2HzGk';
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.querySelector('#email').value;
+    const senha = document.querySelector('#senha').value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    if (error) return alert('Erro: ' + error.message);
+
+    // Redireciona conforme o cargo (professor ou admin)
+    const { data: perfil } = await supabase
+      .from('perfis').select('cargo').eq('id', data.user.id).single();
+
+    window.location.href = perfil?.cargo === 'admin' ? 'admin/' : 'agendamento-usuario.html';
+  });
+</script>
 </html>
