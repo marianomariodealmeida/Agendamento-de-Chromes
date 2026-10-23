@@ -121,5 +121,35 @@
 
     window.location.href = perfil?.cargo === 'admin' ? 'admin/' : 'agendamento-usuario.html';
   });
+async function carregarCalendario() {
+    const inicioSemana = new Date(); // ajustar para segunda-feira
+    const fimSemana = new Date(inicioSemana); fimSemana.setDate(fimSemana.getDate() + 6);
+
+    const { data: agendamentos, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .gte('data', inicioSemana.toISOString().split('T')[0])
+      .lte('data', fimSemana.toISOString().split('T')[0]);
+
+    if (error) return console.error(error);
+
+    const container = document.querySelector('.calendario-grid'); // ajuste o seletor
+    container.innerHTML = ''; // limpa antes de renderizar
+
+    for (let i = 0; i < 7; i++) {
+      const dia = new Date(inicioSemana);
+      dia.setDate(dia.getDate() + i);
+      const celula = document.createElement('div');
+      celula.className = 'dia-calendario';
+      celula.textContent = dia.getDate();
+
+      // Marca dias com agendamentos
+      if (agendamentos.some(a => a.data === dia.toISOString().split('T')[0])) {
+        celula.classList.add('ocupado');
+      }
+      container.appendChild(celula);
+    }
+  }
+  carregarCalendario();
 </script>
 </html>
