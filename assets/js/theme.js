@@ -25,4 +25,11 @@
 
   // permite alternar de qualquer lugar
   window.Theme = { toggle, apply };
+// dentro de window.Theme, adicione:
+function applyPrimaryColors(primary, secondary) {
+  const root = document.documentElement;
+  root.style.setProperty("--primary", primary);
+  root.style.setProperty("--primary-2", secondary);
+  root.style.setProperty("--primary-soft", hexToRgba(primary, 0.15));
+}
 })();
