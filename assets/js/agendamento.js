@@ -82,8 +82,14 @@
     selHorario.disabled = true;
     selHorario.innerHTML = `<option value="">Carregando horários...</option>`;
 
-    const horarios = await Horarios.listarPorSegmento(segmento);
+    const turno = opt.dataset.turno; // "manha" ou "tarde"
+const dataStr = form?.data?.value;
+const isSexta = dataStr
+  ? new Date(dataStr + "T00:00:00").getDay() === 5
+  : false;
+const diaSemana = (turno === "tarde" && isSexta) ? "sexta" : "padrao";
 
+const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
     if (!horarios.length) {
       selHorario.innerHTML = `<option value="">Nenhum horário cadastrado para ${U.escapeHtml(SEGMENTO_LABEL[segmento] || segmento)}</option>`;
       return;
@@ -283,4 +289,7 @@
   }
 
   init();
+   form?.data?.addEventListener("change", () => {
+  if (selTurma?.value) aoTrocarTurma();
+});
 })();
