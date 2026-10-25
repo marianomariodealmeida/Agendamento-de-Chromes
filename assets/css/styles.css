@@ -416,3 +416,85 @@ tbody tr:hover { background: var(--primary-soft); }
 @media (max-width: 640px) {
   .banner-item { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   RESPONSIVIDADE — v3
+   ============================================================ */
+
+/* Evita overflow horizontal sem quebrar sticky header */
+html, body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+@supports not (overflow-x: clip) {
+  html, body { overflow-x: hidden; }
+}
+
+img, input, select, textarea, button { max-width: 100%; }
+
+/* Painel do professor: coluna única (form em cima, meus agendamentos embaixo) */
+.painel-usuario {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 800px;
+  margin-inline: auto;
+}
+
+/* Header pode quebrar linha em telas apertadas */
+.site-header .header-inner { flex-wrap: wrap; }
+.nav { flex-wrap: wrap; }
+
+/* ============ Telas médias (≤ 860px) ============ */
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-visual { display: none; }
+  .form-row, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .cal-day { min-height: 62px; padding: .3rem; }
+  .cal-day-num { font-size: .78rem; }
+  .nav a { padding: .4rem .55rem; font-size: .82rem; }
+}
+
+/* ============ Telas pequenas (≤ 560px) ============ */
+@media (max-width: 560px) {
+  .container { width: 94vw; }
+  main { padding-block: 1rem 2rem; }
+  .card { padding: 1.1rem; }
+  .hero h1 { font-size: 1.55rem; }
+  .hero p { font-size: .92rem; }
+  .brand span:not(.brand-mark) { font-size: .95rem; }
+
+  /* Nav fica oculta para não empurrar o header */
+  .nav { display: none; }
+
+  .header-actions { margin-left: auto; gap: .35rem; }
+  .btn-icon { width: 36px; height: 36px; font-size: .9rem; }
+
+  .cal-toolbar { gap: .4rem; }
+  .cal-toolbar .btn { padding: .4rem .6rem; font-size: .74rem; }
+  .cal-label { font-size: .85rem; order: 3; width: 100%; margin-top: .25rem; }
+
+  .stats { grid-template-columns: 1fr 1fr; gap: .6rem; }
+  .stat { padding: .8rem .9rem; }
+  .stat-value { font-size: 1.35rem; }
+
+  .admin-tabs { padding: .2rem; }
+  .admin-tab { padding: .45rem .6rem; font-size: .75rem; }
+
+  thead th, tbody td { padding: .55rem .6rem; font-size: .8rem; word-break: break-word; }
+  .table-wrap { font-size: .8rem; }
+
+  .modal-panel { padding: 1rem; max-height: 90vh; }
+
+  .auth-card h1 { font-size: 1.25rem; }
+  .auth-wrap { min-height: auto; padding-block: 1.5rem; }
+}
+
+/* ============ Telas muito pequenas (≤ 400px) ============ */
+@media (max-width: 400px) {
+  .calendar-grid { gap: 2px; }
+  .cal-day { min-height: 44px; padding: .2rem; }
+  .cal-day-num { font-size: .68rem; }
+  .cal-dot { width: 5px; height: 5px; }
+  .stats { grid-template-columns: 1fr; }
+}
