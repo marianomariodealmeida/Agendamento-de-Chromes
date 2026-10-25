@@ -24,7 +24,7 @@
   function monthRange(ref) {
     const first = new Date(ref.getFullYear(), ref.getMonth(), 1);
     const gridStart = new Date(first);
-    gridStart.setDate(first.getDate() - first.getDay()); // domingo anterior
+    gridStart.setDate(first.getDate() - first.getDay());
     const gridEnd = new Date(gridStart);
     gridEnd.setDate(gridStart.getDate() + 41);
     return { first, gridStart, gridEnd };
@@ -124,11 +124,11 @@
       month: "long",
     });
 
-    if (!items.length) {
-      el.modalBody.innerHTML = `<p class="empty">Nenhum agendamento neste dia.</p>`;
-    } else {
-      el.modalBody.innerHTML = `
-        <div class="list">
+    const hoje = U.toISODate(new Date());
+    const podeAgendar = iso >= hoje; // hoje ou futuro
+
+    const itemsHtml = items.length
+      ? `<div class="list">
           ${items
             .map(
               (it) => `
@@ -145,12 +145,15 @@
             </div>`
             )
             .join("")}
-        </div>
-        <a class="btn btn-primary btn-block" style="margin-top:1rem"
-           href="agendamento-usuario.html?data=${iso}">Agendar neste dia</a>
-      `;
-    }
+        </div>`
+      : `<p class="empty">Nenhum agendamento neste dia.</p>`;
 
+    const btnHtml = podeAgendar
+      ? `<a class="btn btn-primary btn-block" style="margin-top:1rem"
+           href="agendamento-usuario.html?data=${iso}">Agendar neste dia</a>`
+      : `<p class="empty" style="margin-top:1rem">Este dia já passou — não é possível agendar.</p>`;
+
+    el.modalBody.innerHTML = itemsHtml + btnHtml;
     el.modal.hidden = false;
   }
 
@@ -158,7 +161,6 @@
     if (el.modal) el.modal.hidden = true;
   }
 
-  /* ---------- Eventos ---------- */
   el.prev?.addEventListener("click", () => {
     state.ref = new Date(state.ref.getFullYear(), state.ref.getMonth() - 1, 1);
     fetchMonth();
