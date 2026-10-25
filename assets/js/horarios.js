@@ -1,14 +1,19 @@
 (function () {
   const { db } = window;
 
-  async function listarPorSegmento(segmento) {
-    const { data } = await db
-      .from("horarios_aula")
-      .select("*")
-      .eq("segmento", segmento)
-      .order("ordem");
-    return data || [];
-  }
+async function listarPorSegmento(segmento, turno = null, diaSemana = "padrao") {
+  let q = db
+    .from("horarios_aula")
+    .select("*")
+    .eq("segmento", segmento)
+    .eq("dia_semana", diaSemana)
+    .order("ordem");
+
+  if (turno) q = q.eq("turno", turno);
+
+  const { data } = await q;
+  return data || [];
+}
 
   async function listarTurmas() {
     const { data } = await db.from("turmas").select("*").order("nome");
