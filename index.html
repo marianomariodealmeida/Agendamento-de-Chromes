@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChromeAgenda — Agendamento de Chromebooks</title>
 
-  <!-- Anti-FOUC do tema (evita flash claro→escuro) -->
   <script>
     (function () {
       try {
@@ -40,7 +39,7 @@
 
       <div class="header-actions">
         <div id="user-area" style="display:flex;gap:.5rem;align-items:center"></div>
-        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+        <button id="theme-toggle" class="btn-icon" aria-label="Alternar tema" title="Alternar tema">
           <span class="ico-light">🌙</span>
           <span class="ico-dark">☀️</span>
         </button>
@@ -62,7 +61,6 @@
         </div>
       </div>
       <div class="hero-visual" id="hero-visual">
-        <!-- O JS substitui pelo slider de banners ou mantém o fallback abaixo -->
         <span class="glyph">💻</span>
       </div>
     </section>
@@ -84,7 +82,6 @@
         <div class="cal-legend">
           <span><span class="legend-dot dot-manha"></span>Manhã</span>
           <span><span class="legend-dot dot-tarde"></span>Tarde</span>
-          <span><span class="legend-dot dot-noite"></span>Noite</span>
         </div>
       </div>
     </section>
@@ -97,7 +94,6 @@
     </div>
   </footer>
 
-  <!-- Modal do dia -->
   <div class="modal" id="day-modal" hidden>
     <div class="modal-panel">
       <div class="modal-head">
@@ -108,7 +104,6 @@
     </div>
   </div>
 
-  <!-- ============ SCRIPTS (no final do body) ============ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/utils.js"></script>
@@ -119,22 +114,15 @@
   <script src="assets/js/calendar.js"></script>
   <script>
     (async () => {
-      // 1) aplica configurações (nome, textos, cores)
       try {
         const cfg = await SiteConfig.carregar();
         SiteConfig.aplicar(cfg);
-      } catch (err) {
-        console.warn("[index] config:", err);
-      }
+      } catch (err) { console.warn("[index] config:", err); }
 
-      // 2) hero: slider de banners ou fallback 💻
       try {
         await Banners.renderHero("#hero-visual");
-      } catch (err) {
-        console.warn("[index] banners:", err);
-      }
+      } catch (err) { console.warn("[index] banners:", err); }
 
-      // 3) área do usuário no cabeçalho
       Auth.renderHeaderUser("#user-area", {
         loginHref: "login.html",
         painelHref: "agendamento-usuario.html",
