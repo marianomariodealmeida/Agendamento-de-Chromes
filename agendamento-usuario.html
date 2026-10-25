@@ -44,69 +44,64 @@
     </div>
   </header>
 
-  <main>
-    <div class="container" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:1.5rem;align-items:start">
-      <div class="card">
-        <h2 class="card-title">Novo agendamento</h2>
-        <p class="card-sub">Solicite o uso do carrinho de Chromebooks.</p>
+  <main class="container painel-usuario">
 
-        <form id="form-agendamento">
-          <div class="field">
-            <label for="data">Data</label>
-            <input class="input" type="date" id="data" name="data" required />
-          </div>
+    <!-- ============ FORMULÁRIO ============ -->
+    <div class="card">
+      <h2 class="card-title">Novo agendamento</h2>
+      <p class="card-sub">Solicite o uso do carrinho de Chromebooks.</p>
 
-          <div class="field">
-            <label for="turma">Turma</label>
-            <select class="select" id="turma" name="turma" required>
-              <option value="">Selecione a turma...</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="carrinho">Carrinho</label>
-            <select class="select" id="carrinho" name="carrinho" required>
-              <option value="">Selecione o carrinho...</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="horario">Horário de aula</label>
-            <select class="select" id="horario" name="horario" required disabled>
-              <option value="">Selecione a turma primeiro...</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="quantidade">Quantidade de Chromebooks</label>
-            <input class="input" type="number" id="quantidade" name="quantidade"
-                   value="1" min="1" max="40" required />
-          </div>
-
-          <div class="field">
-            <label for="sala">Sala / Turma (opcional)</label>
-            <input class="input" type="text" id="sala" name="sala" placeholder="Ex.: Sala 12 — 9ºB" />
-          </div>
-
-          <div class="field">
-            <label for="observacoes">Observações (opcional)</label>
-            <textarea class="textarea" id="observacoes" name="observacoes" placeholder="Alguma necessidade específica?"></textarea>
-          </div>
-
-          <div id="aviso-bloqueio" class="empty" style="display:none"></div>
-
-          <button class="btn btn-primary btn-block" type="submit">Solicitar agendamento</button>
-        </form>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">Meus agendamentos</h2>
-        <p class="card-sub">Acompanhe o status das suas solicitações.</p>
-        <div class="list" id="meus-agendamentos">
-          <p class="empty">Carregando…</p>
+      <form id="form-agendamento">
+        <div class="field">
+          <label for="data">Data</label>
+          <input class="input" type="date" id="data" name="data" required />
         </div>
+
+        <div class="field">
+          <label for="turma">Turma</label>
+          <select class="select" id="turma" name="turma" required>
+            <option value="">Selecione a turma...</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="horario">Horário de aula</label>
+          <select class="select" id="horario" name="horario" required disabled>
+            <option value="">Selecione a turma primeiro...</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="quantidade">Quantidade de Chromebooks</label>
+          <input class="input" type="number" id="quantidade" name="quantidade"
+                 value="1" min="1" max="40" required />
+        </div>
+
+        <div class="field">
+          <label for="sala">Sala / Turma (opcional)</label>
+          <input class="input" type="text" id="sala" name="sala" placeholder="Ex.: Sala 12 — 9ºB" />
+        </div>
+
+        <div class="field">
+          <label for="observacoes">Observações (opcional)</label>
+          <textarea class="textarea" id="observacoes" name="observacoes" placeholder="Alguma necessidade específica?"></textarea>
+        </div>
+
+        <div id="aviso-bloqueio" class="empty" style="display:none"></div>
+
+        <button class="btn btn-primary btn-block" type="submit">Solicitar agendamento</button>
+      </form>
+    </div>
+
+    <!-- ============ MEUS AGENDAMENTOS (abaixo do formulário) ============ -->
+    <div class="card">
+      <h2 class="card-title">Meus agendamentos</h2>
+      <p class="card-sub">Acompanhe o status das suas solicitações.</p>
+      <div class="list" id="meus-agendamentos">
+        <p class="empty">Carregando…</p>
       </div>
     </div>
+
   </main>
 
   <footer class="site-footer">
@@ -116,7 +111,6 @@
     </div>
   </footer>
 
-  <!-- ============ SCRIPTS (no final do body, na ordem correta) ============ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-client.js"></script>
   <script src="assets/js/utils.js"></script>
@@ -126,14 +120,11 @@
   <script src="assets/js/horarios.js"></script>
   <script src="assets/js/agendamento.js"></script>
   <script>
-    // Aplica config do site (nome/cores) se disponível
     (async () => {
       try {
         const cfg = await SiteConfig.carregar();
         SiteConfig.aplicar(cfg);
-      } catch (err) {
-        console.warn("[painel] config:", err);
-      }
+      } catch (err) { console.warn("[painel] config:", err); }
 
       Auth.renderHeaderUser("#user-area", {
         loginHref: "login.html",
