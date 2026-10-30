@@ -1,8 +1,12 @@
 /* ============================================================
    agendamento.js — Painel do professor
-   - Turma → horário por segmento
-   - Regra: máximo 2 agendamentos por data+horário (pendentes/aprovados)
-   - Bloqueio antecipado + eventos especiais + conflito
+   Regras aplicadas:
+     • Turma → horários do segmento (manhã/tarde, regular/sexta)
+     • Bloqueio antecipado (bloqueio_horas)
+     • Eventos especiais (datas bloqueadas)
+     • Conflito de carrinhos por sobreposição de intervalos
+       (bloqueia se 2+ carrinhos ficariam ocupados em qualquer
+        instante da janela solicitada — verificar_conflito_carrinhos)
    ============================================================ */
 (function () {
   const { db } = window;
@@ -17,18 +21,16 @@
   const selTurma   = document.getElementById("turma");
   const selHorario = document.getElementById("horario");
 
-  const MAX_POR_HORARIO = 2; // regra: até 2 agendamentos por data+horário
-
   let session = null;
   let perfil  = null;
   let turmas  = [];
 
   const SEGMENTO_LABEL = {
-    infantil: "Educação Infantil",
-    fund1: "Fundamental 1",
-    fund2: "Fundamental 2",
-    medio: "Ensino Médio",
-    contraturno: "Contraturno",
+    infantil:   "Educação Infantil",
+    fund1:      "Fundamental 1",
+    fund2:      "Fundamental 2",
+    medio:      "Ensino Médio",
+    contraturno:"Contraturno",
   };
 
   /* ============================================================ INIT */
@@ -44,6 +46,11 @@
       const params = new URLSearchParams(window.location.search);
       const dataParam = params.get("data");
       form.data.value = dataParam || U.toISODate(new Date());
+
+      // Recarrega horários quando a data muda (sexta-feira afeta o turno da tarde)
+      form.data.addEventListener("change", () => {
+        if (selTurma?.value) aoTrocarTurma();
+      });
     }
 
     selTurma?.addEventListener("change", aoTrocarTurma);
@@ -72,6 +79,7 @@
 
     const opt = selTurma.options[selTurma.selectedIndex];
     const segmento = opt?.dataset.segmento;
+    const turno    = opt?.dataset.turno;
 
     if (!segmento) {
       selHorario.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
@@ -82,14 +90,15 @@
     selHorario.disabled = true;
     selHorario.innerHTML = `<option value="">Carregando horários...</option>`;
 
-    const turno = opt.dataset.turno; // "manha" ou "tarde"
-const dataStr = form?.data?.value;
-const isSexta = dataStr
-  ? new Date(dataStr + "T00:00:00").getDay() === 5
-  : false;
-const diaSemana = (turno === "tarde" && isSexta) ? "sexta" : "padrao";
+    // Descobre se a data escolhida cai numa sexta-feira (turno da tarde → horários "sexta")
+    const dataStr = form?.data?.value;
+    const isSexta = dataStr
+      ? new Date(dataStr + "T00:00:00").getDay() === 5
+      : false;
+    const diaSemana = (turno === "tarde" && isSexta) ? "sexta" : "padrao";
 
-const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
+    const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
+
     if (!horarios.length) {
       selHorario.innerHTML = `<option value="">Nenhum horário cadastrado para ${U.escapeHtml(SEGMENTO_LABEL[segmento] || segmento)}</option>`;
       return;
@@ -113,6 +122,7 @@ const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
 
+    /* -------- Coleta -------- */
     const dataStr     = form.data.value;
     const turmaId     = selTurma?.value || null;
     const horarioId   = selHorario?.value || null;
@@ -120,14 +130,15 @@ const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
     const sala        = form.sala.value.trim() || null;
     const observacoes = form.observacoes.value.trim() || null;
 
+    /* -------- Validações básicas -------- */
     if (!dataStr)   return U.toast("Escolha uma data.", "error");
     if (!turmaId)   return U.toast("Selecione a turma.", "error");
     if (!horarioId) return U.toast("Selecione o horário de aula.", "error");
     if (quantidade < 1 || quantidade > 40)
       return U.toast("Quantidade deve ser entre 1 e 40.", "error");
 
-    /* -------- bloqueio antecipado -------- */
-    const horasBloq = await Horarios.bloqueioHoras();
+    /* -------- Bloqueio antecipado -------- */
+    const horasBloq  = await Horarios.bloqueioHoras();
     const horarioOpt = selHorario.options[selHorario.selectedIndex];
     const horaInicio = horarioOpt?.dataset.inicio || "00:00";
     const dataHoraAgendada = new Date(`${dataStr}T${horaInicio}:00`);
@@ -135,48 +146,44 @@ const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
     const diffHoras = (dataHoraAgendada - agora) / 36e5;
 
     if (diffHoras < horasBloq) {
-      const msg = `Antecedência mínima de ${horasBloq}h. Escolha um horário a partir de ` +
+      const msg =
+        `Antecedência mínima de ${horasBloq}h. ` +
+        `Escolha um horário a partir de ` +
         new Date(agora.getTime() + horasBloq * 36e5).toLocaleString("pt-BR");
       if (avisoEl) { avisoEl.style.display = "block"; avisoEl.textContent = "⚠️ " + msg; }
       return U.toast(msg, "error", 5500);
-    } else if (avisoEl) avisoEl.style.display = "none";
+    } else if (avisoEl) {
+      avisoEl.style.display = "none";
+    }
 
-    /* -------- eventos especiais -------- */
+    /* -------- Eventos especiais -------- */
     const eventos = await Horarios.eventosDoDia(dataStr, null);
     if (eventos.length) {
       const ev = eventos[0];
       const msg = `Data bloqueada: ${ev.titulo} (${U.formatDate(ev.data_inicio)} → ${U.formatDate(ev.data_fim)})`;
       if (avisoEl) { avisoEl.style.display = "block"; avisoEl.textContent = "🚫 " + msg; }
       return U.toast(msg, "error", 5500);
-    } else if (avisoEl) avisoEl.style.display = "none";
-
-    /* -------- REGRA: 2 carrinhos simultâneos (overlap real) -------- */
-const { data: conflito, error: conflitoErr } = await db.rpc(
-  "verificar_conflito_carrinhos",
-  { p_data: dataStr, p_horario_id: horarioId }
-);
-
-if (conflitoErr) {
-  console.warn("[agendamento] rpc conflito:", conflitoErr.message);
-} else if (conflito) {
-  return U.toast(
-    "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso.",
-    "error",
-    6500
-  );
-}
-
-    /* -------- conflito RPC (mantido como salvaguarda) -------- */
-    const { data: conflito } = await db.rpc("verificar_conflito_agendamento", {
-      p_data: dataStr,
-      p_carrinho_id: null,
-      p_horario_id: horarioId,
-    });
-    if (conflito) {
-      return U.toast("Já existe agendamento neste dia/horário.", "error", 5000);
+    } else if (avisoEl) {
+      avisoEl.style.display = "none";
     }
 
-    /* -------- insert -------- */
+    /* -------- Conflito de carrinhos (sobreposição real) -------- */
+    const { data: conflito, error: conflitoErr } = await db.rpc(
+      "verificar_conflito_carrinhos",
+      { p_data: dataStr, p_horario_id: horarioId }
+    );
+
+    if (conflitoErr) {
+      console.warn("[agendamento] rpc conflito:", conflitoErr.message);
+    } else if (conflito) {
+      return U.toast(
+        "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso.",
+        "error",
+        6500
+      );
+    }
+
+    /* -------- Monta payload -------- */
     const payload = {
       usuario_id: session.user.id,
       professor_nome: perfil?.nome || session.user.email,
@@ -190,6 +197,7 @@ if (conflitoErr) {
       status: "pendente",
     };
 
+    /* -------- Insert -------- */
     btn.disabled = true;
     btn.textContent = "Enviando...";
 
@@ -198,8 +206,22 @@ if (conflitoErr) {
     btn.disabled = false;
     btn.textContent = "Solicitar agendamento";
 
-    if (error) return U.toast("Erro: " + error.message, "error", 6000);
+    if (error) {
+      switch (error.code) {
+        case "P0001":
+          return U.toast("Este horário já está cheio. Escolha outro.", "error", 5500);
+        case "P0002":
+          return U.toast(error.message, "error", 6500);   // evento especial
+        case "P0003":
+          return U.toast(error.message, "error", 6500);   // antecedência mínima
+        case "P0004":
+          return U.toast(error.message, "error", 6500);   // 2 carrinhos em uso
+        default:
+          return U.toast("Erro: " + error.message, "error", 6000);
+      }
+    }
 
+    /* -------- Sucesso -------- */
     U.toast("Agendamento solicitado!", "success");
     form.reset();
     form.data.value = U.toISODate(new Date());
@@ -212,13 +234,15 @@ if (conflitoErr) {
     await carregar();
   }
 
-  /* ============================================================ LISTA */
+  /* ============================================================ LISTAGEM */
   async function carregar() {
     if (!listEl) return;
 
     const { data, error } = await db
       .from("agendamentos")
-      .select("*, turma:turmas(nome,segmento), horario:horarios_aula(rotulo,hora_inicio,hora_fim)")
+      .select(
+        "*, turma:turmas(nome,segmento), horario:horarios_aula(rotulo,hora_inicio,hora_fim)"
+      )
       .eq("usuario_id", session.user.id)
       .order("data", { ascending: false });
 
@@ -243,7 +267,9 @@ if (conflitoErr) {
       ? `${U.escapeHtml(it.horario.rotulo)} (${it.horario.hora_inicio}–${it.horario.hora_fim})`
       : U.escapeHtml(U.periodoLabel(it.periodo));
 
-    const turmaTxt = it.turma?.nome ? `Turma ${U.escapeHtml(it.turma.nome)}` : "";
+    const turmaTxt = it.turma?.nome
+      ? `Turma ${U.escapeHtml(it.turma.nome)}`
+      : "";
 
     const meta = [
       `${it.quantidade} Chromebook(s)`,
@@ -259,15 +285,24 @@ if (conflitoErr) {
         <div class="grow">
           <div class="title">${U.formatDate(it.data)} — ${horarioTxt}</div>
           <div class="meta">${meta}</div>
-          ${it.observacoes ? `<div class="meta" style="margin-top:.2rem;font-style:italic">"${U.escapeHtml(it.observacoes)}"</div>` : ""}
+          ${
+            it.observacoes
+              ? `<div class="meta" style="margin-top:.2rem;font-style:italic">"${U.escapeHtml(it.observacoes)}"</div>`
+              : ""
+          }
         </div>
-        ${podeCancelar ? `<button class="btn btn-danger btn-sm" data-cancelar="${it.id}">Cancelar</button>` : ""}
+        ${
+          podeCancelar
+            ? `<button class="btn btn-danger btn-sm" data-cancelar="${it.id}">Cancelar</button>`
+            : ""
+        }
       </div>
     `;
   }
 
   async function cancelar(btn) {
     if (!confirm("Cancelar este agendamento?")) return;
+
     btn.disabled = true;
     btn.textContent = "Cancelando...";
 
@@ -286,8 +321,6 @@ if (conflitoErr) {
     await carregar();
   }
 
+  /* ============================================================ START */
   init();
-   form?.data?.addEventListener("change", () => {
-  if (selTurma?.value) aoTrocarTurma();
-});
 })();
