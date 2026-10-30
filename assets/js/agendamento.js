@@ -150,23 +150,21 @@ const horarios = await Horarios.listarPorSegmento(segmento, turno, diaSemana);
       return U.toast(msg, "error", 5500);
     } else if (avisoEl) avisoEl.style.display = "none";
 
-    /* -------- REGRA: máx. 2 agendamentos por data+horário -------- */
-    const { count, error: countErr } = await db
-      .from("agendamentos")
-      .select("id", { count: "exact", head: true })
-      .eq("data", dataStr)
-      .eq("horario_id", horarioId)
-      .in("status", ["pendente", "aprovado"]);
+    /* -------- REGRA: 2 carrinhos simultâneos (overlap real) -------- */
+const { data: conflito, error: conflitoErr } = await db.rpc(
+  "verificar_conflito_carrinhos",
+  { p_data: dataStr, p_horario_id: horarioId }
+);
 
-    if (countErr) {
-      console.warn("[agendamento] count:", countErr.message);
-    } else if ((count ?? 0) >= MAX_POR_HORARIO) {
-      return U.toast(
-        `Este horário já tem ${MAX_POR_HORARIO} agendamentos. Escolha outro horário.`,
-        "error",
-        5500
-      );
-    }
+if (conflitoErr) {
+  console.warn("[agendamento] rpc conflito:", conflitoErr.message);
+} else if (conflito) {
+  return U.toast(
+    "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso.",
+    "error",
+    6500
+  );
+}
 
     /* -------- conflito RPC (mantido como salvaguarda) -------- */
     const { data: conflito } = await db.rpc("verificar_conflito_agendamento", {
