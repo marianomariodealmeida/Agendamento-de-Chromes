@@ -199,6 +199,14 @@ alter table public.turmas
   check (turno in ('manha', 'tarde', 'noite'));
 
 -- ============ 4. FUNÇÕES ============
+-- Remove as travas antigas (duas implementações de conflito) antes de
+-- redefinir as funções, para não deixar dependências penduradas.
+drop trigger if exists trg_limitar_agendamentos on public.agendamentos;
+drop trigger if exists trg_limitar_agendamentos_update on public.agendamentos;
+drop function if exists public.limitar_agendamentos_por_horario();
+drop function if exists public.limitar_agendamentos_update();
+drop function if exists public.verificar_conflito_carrinhos(date, uuid, uuid);
+
 create or replace function public.is_admin()
 returns boolean
 language sql stable security definer set search_path = public
@@ -333,8 +341,6 @@ end $$;
 
 -- Mantida para o cliente (checagem prévia); a versão autoritativa é o trigger.
 -- Assinatura de 2 argumentos para o RPC do front-end.
-drop function if exists public.verificar_conflito_carrinhos(date, uuid, uuid);
-
 create or replace function public.verificar_conflito_carrinhos(p_data date, p_horario_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
@@ -441,13 +447,6 @@ begin
 end $$;
 
 -- ============ 5. TRIGGERS ============
--- Remove as travas antigas (duas implementações de conflito) para não
--- duplicar regra nem criar ambiguidade no RPC.
-drop trigger if exists trg_limitar_agendamentos on public.agendamentos;
-drop trigger if exists trg_limitar_agendamentos_update on public.agendamentos;
-drop function if exists public.limitar_agendamentos_por_horario();
-drop function if exists public.limitar_agendamentos_update();
-
 -- Nomes antigos de updated_at
 drop trigger if exists trg_agendamentos_updated_at on public.agendamentos;
 drop trigger if exists trg_perfis_updated_at on public.perfis;
