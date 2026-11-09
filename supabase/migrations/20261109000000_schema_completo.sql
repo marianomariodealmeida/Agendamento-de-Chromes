@@ -14,6 +14,8 @@
 --   5. cria o bucket de banners e suas policies.
 --
 -- IMPORTANTE: rode primeiro `00_diagnostico.sql` para registrar o estado atual.
+-- Para deploy sem derrubar o site antigo, aplique `01_transicao_view.sql`
+-- antes de mesclar o front-end novo.
 -- ============================================================================
 
 begin;
@@ -24,7 +26,8 @@ create table if not exists public.perfis (
   nome text,
   email text,
   cargo text not null default 'professor',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.carrinhos (
@@ -32,7 +35,9 @@ create table if not exists public.carrinhos (
   nome text not null,
   descricao text,
   localizacao text,
-  created_at timestamptz not null default now()
+  ativo boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.chromebooks (
@@ -43,7 +48,8 @@ create table if not exists public.chromebooks (
   polegadas numeric(4,1),
   carrinho_id uuid references public.carrinhos(id) on delete set null,
   status text not null default 'disponivel',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.turmas (
@@ -72,6 +78,7 @@ create table if not exists public.eventos_especiais (
   descricao text,
   data_inicio date not null,
   data_fim date not null,
+  dia_inteiro boolean not null default true,
   carrinho_id uuid references public.carrinhos(id) on delete cascade,
   created_at timestamptz not null default now()
 );
@@ -86,8 +93,8 @@ create table if not exists public.agendamentos (
   sala text,
   observacoes text,
   status text not null default 'pendente',
-  turma_id uuid references public.turmas(id) on delete restrict,
-  horario_id uuid references public.horarios_aula(id) on delete restrict,
+  turma_id uuid references public.turmas(id) on delete set null,
+  horario_id uuid references public.horarios_aula(id) on delete set null,
   carrinho_id uuid references public.carrinhos(id) on delete set null,
   aprovado_por uuid references auth.users(id) on delete set null,
   aprovado_em timestamptz,
@@ -131,6 +138,14 @@ alter table public.horarios_aula add column if not exists ordem int default 0;
 
 alter table public.chromebooks add column if not exists carrinho_id uuid;
 alter table public.chromebooks add column if not exists status text default 'disponivel';
+alter table public.chromebooks add column if not exists updated_at timestamptz default now();
+
+alter table public.carrinhos add column if not exists ativo boolean default true;
+alter table public.carrinhos add column if not exists updated_at timestamptz default now();
+
+alter table public.perfis add column if not exists updated_at timestamptz default now();
+
+alter table public.eventos_especiais add column if not exists dia_inteiro boolean default true;
 
 alter table public.configuracoes_site add column if not exists bloqueio_horas int default 24;
 alter table public.configuracoes_site add column if not exists updated_at timestamptz default now();
@@ -175,6 +190,17 @@ alter table public.perfis drop constraint if exists perfis_cargo_check;
 alter table public.perfis
   add constraint perfis_cargo_check
   check (cargo in ('professor', 'admin'));
+
+-- O painel agora cadastra turmas/horÃ¡rios do turno da noite.
+alter table public.horarios_aula drop constraint if exists horarios_aula_turno_check;
+alter table public.horarios_aula
+  add constraint horarios_aula_turno_check
+  check (turno in ('manha', 'tarde', 'noite'));
+
+alter table public.turmas drop constraint if exists turmas_turno_check;
+alter table public.turmas
+  add constraint turmas_turno_check
+  check (turno in ('manha', 'tarde', 'noite'));
 
 -- ============ 4. FUNÃ‡Ã•ES ============
 create or replace function public.is_admin()
@@ -250,19 +276,88 @@ begin
   return new;
 end $$;
 
+-- ---------------------------------------------------------------- conflitos
+-- Conta quantos carrinhos estÃ£o ocupados na janela de horÃ¡rio pedida,
+-- considerando sobreposiÃ§Ã£o real (aula de 50min x aula de 100min).
+-- Retorna true quando nÃ£o hÃ¡ carrinho livre.
+create or replace function public.conflito_carrinhos(
+  p_data date,
+  p_horario_id uuid,
+  p_ignorar_id uuid default null
+)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+declare
+  v_inicio time;
+  v_fim time;
+  v_total int;
+  v_conflito boolean := false;
+begin
+  if p_horario_id is null then
+    return false;
+  end if;
+
+  select hora_inicio, hora_fim
+    into v_inicio, v_fim
+    from public.horarios_aula
+   where id = p_horario_id;
+
+  if v_inicio is null then
+    return false;
+  end if;
+
+  select count(*) into v_total from public.carrinhos;
+  if v_total = 0 then
+    v_total := 2; -- padrÃ£o enquanto o admin nÃ£o cadastra os carrinhos
+  end if;
+
+  with concorrentes as (
+    select h.hora_inicio, h.hora_fim
+      from public.agendamentos a
+      join public.horarios_aula h on h.id = a.horario_id
+     where a.data = p_data
+       and a.status in ('pendente', 'aprovado')
+       and (p_ignorar_id is null or a.id <> p_ignorar_id)
+       and h.hora_inicio < v_fim
+       and h.hora_fim    > v_inicio
+  ),
+  eventos as (
+    select greatest(hora_inicio, v_inicio) as t, +1 as delta from concorrentes
+    union all
+    select least(hora_fim,    v_fim)    as t, -1 as delta from concorrentes
+  ),
+  momentos as (
+    select t, sum(delta) over (order by t, delta asc) as ativos from eventos
+  )
+  select exists (select 1 from momentos where ativos >= v_total) into v_conflito;
+
+  return coalesce(v_conflito, false);
+end $$;
+
+-- Mantida para o cliente (checagem prÃ©via); a versÃ£o autoritativa Ã© o trigger.
+-- Assinatura de 2 argumentos para o RPC do front-end.
+drop function if exists public.verificar_conflito_carrinhos(date, uuid, uuid);
+
+create or replace function public.verificar_conflito_carrinhos(p_data date, p_horario_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select public.conflito_carrinhos(p_data, p_horario_id, null);
+$$;
+
 -- Trava atÃ´mica: conflito de carrinhos, capacidade e eventos.
 create or replace function public.valida_agendamento()
 returns trigger
 language plpgsql security definer set search_path = public
 as $$
 declare
-  v_carrinhos int;
-  v_em_uso int;
   v_capacidade int;
   v_evento text;
   v_inicio time;
   v_horas int;
   v_inserindo boolean := (tg_op = 'INSERT');
+  v_checar boolean := false;
 begin
   if new.status = 'cancelado' then
     return new;
@@ -273,7 +368,7 @@ begin
     hashtext(coalesce(new.data::text, '') || ':' || coalesce(new.horario_id::text, ''))
   );
 
-  if tg_op = 'INSERT' then
+  if v_inserindo then
     -- Evento especial na data
     select titulo into v_evento
       from public.eventos_especiais
@@ -315,42 +410,22 @@ begin
   end if;
 
   -- Conflito de carrinhos (tambÃ©m na aprovaÃ§Ã£o)
-  if tg_op = 'INSERT'
-     or (new.status = 'aprovado' and old.status is distinct from 'aprovado') then
+  if v_inserindo then
+    v_checar := true;
+  elsif new.status = 'aprovado' and old.status is distinct from 'aprovado' then
+    v_checar := true;
+  else
+    v_checar := false;
+  end if;
 
-    select count(*) into v_carrinhos from public.carrinhos;
-    if v_carrinhos = 0 then
-      v_carrinhos := 2; -- padrÃ£o enquanto o admin nÃ£o cadastra os carrinhos
-    end if;
-
-    select count(distinct coalesce(carrinho_id::text, id::text)) into v_em_uso
-      from public.agendamentos
-     where data = new.data
-       and horario_id = new.horario_id
-       and status <> 'cancelado'
-       and (v_inserindo or id <> new.id);
-
-    if v_em_uso >= v_carrinhos then
+  if v_checar then
+    if public.conflito_carrinhos(new.data, new.horario_id, new.id) then
       raise exception 'Os carrinhos jÃ¡ estÃ£o em uso nesse horÃ¡rio.' using errcode = 'P0004';
     end if;
   end if;
 
   return new;
 end $$;
-
--- Mantida para o cliente (checagem prÃ©via); a versÃ£o autoritativa Ã© o trigger.
-create or replace function public.verificar_conflito_carrinhos(p_data date, p_horario_id uuid)
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-  select (
-    select count(*)
-      from public.agendamentos
-     where data = p_data
-       and horario_id = p_horario_id
-       and status <> 'cancelado'
-  ) >= coalesce(nullif((select count(*) from public.carrinhos), 0), 2);
-$$;
 
 -- Cria o perfil automaticamente no cadastro
 create or replace function public.handle_new_user()
@@ -361,7 +436,7 @@ begin
   insert into public.perfis (id, nome, email, cargo)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'nome', new.email),
+    coalesce(new.raw_user_meta_data->>'nome', split_part(new.email, '@', 1)),
     new.email,
     'professor'
   )
@@ -370,6 +445,20 @@ begin
 end $$;
 
 -- ============ 5. TRIGGERS ============
+-- Remove as travas antigas (duas implementaÃ§Ãµes de conflito) para nÃ£o
+-- duplicar regra nem criar ambiguidade no RPC.
+drop trigger if exists trg_limitar_agendamentos on public.agendamentos;
+drop trigger if exists trg_limitar_agendamentos_update on public.agendamentos;
+drop function if exists public.limitar_agendamentos_por_horario();
+drop function if exists public.limitar_agendamentos_update();
+
+-- Nomes antigos de updated_at
+drop trigger if exists trg_agendamentos_updated_at on public.agendamentos;
+drop trigger if exists trg_perfis_updated_at on public.perfis;
+drop trigger if exists trg_carrinhos_updated on public.carrinhos;
+drop trigger if exists trg_chromebooks_updated on public.chromebooks;
+drop trigger if exists trg_config_updated on public.configuracoes_site;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -398,6 +487,21 @@ create trigger trg_audita_agendamento
 drop trigger if exists trg_updated_agendamentos on public.agendamentos;
 create trigger trg_updated_agendamentos
   before update on public.agendamentos
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_updated_perfis on public.perfis;
+create trigger trg_updated_perfis
+  before update on public.perfis
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_updated_carrinhos on public.carrinhos;
+create trigger trg_updated_carrinhos
+  before update on public.carrinhos
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_updated_chromebooks on public.chromebooks;
+create trigger trg_updated_chromebooks
+  before update on public.chromebooks
   for each row execute function public.set_updated_at();
 
 drop trigger if exists trg_updated_config on public.configuracoes_site;
@@ -445,13 +549,18 @@ create policy "perfil_admin_gerencia" on public.perfis
   using (public.is_admin())
   with check (public.is_admin());
 
+-- policies antigas, redundantes com perfil_admin_gerencia
+drop policy if exists "perfil_admin_select_todos" on public.perfis;
+drop policy if exists "perfil_admin_update_todos" on public.perfis;
+
 -- ---------- agendamentos ----------
 -- NinguÃ©m anÃ´nimo lÃª a tabela: o calendÃ¡rio pÃºblico usa a view agenda_publica.
 drop policy if exists "ag_select_publico" on public.agendamentos;
+
 drop policy if exists "ag_select_equipe" on public.agendamentos;
 create policy "ag_select_equipe" on public.agendamentos
   for select to authenticated
-  using (true);
+  using (auth.uid() = usuario_id);
 
 drop policy if exists "ag_insert_proprio" on public.agendamentos;
 create policy "ag_insert_proprio" on public.agendamentos
@@ -469,6 +578,12 @@ create policy "ag_admin_gerencia" on public.agendamentos
   for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- professor cancela (soft delete); nÃ£o apaga o histÃ³rico
+drop policy if exists "ag_delete_proprio" on public.agendamentos;
+-- duplicadas das permissÃµes do admin
+drop policy if exists "ag_admin_delete_todos" on public.agendamentos;
+drop policy if exists "ag_admin_update_todos" on public.agendamentos;
 
 revoke all on public.agendamentos from anon;
 
@@ -523,13 +638,13 @@ drop view if exists public.agenda_publica;
 -- expondo apenas estas colunas â€” nunca nome, sala ou observaÃ§Ãµes.
 create view public.agenda_publica as
 select
-  data,
-  periodo,
-  horario_id,
-  quantidade,
-  status
-from public.agendamentos
-where status <> 'cancelado';
+  a.data,
+  a.periodo,
+  a.horario_id,
+  a.quantidade,
+  a.status
+from public.agendamentos a
+where a.status <> 'cancelado';
 
 comment on view public.agenda_publica is
   'CalendÃ¡rio pÃºblico: apenas data, perÃ­odo, quantidade e status. Sem nome, sala ou observaÃ§Ãµes.';
@@ -571,6 +686,10 @@ end $$;
 insert into storage.buckets (id, name, public)
 values ('banners', 'banners', true)
 on conflict (id) do update set public = true;
+
+-- policies antigas com o mesmo efeito
+drop policy if exists "storage_banners_select" on storage.objects;
+drop policy if exists "storage_banners_admin_all" on storage.objects;
 
 drop policy if exists "banners_storage_leitura" on storage.objects;
 create policy "banners_storage_leitura" on storage.objects
