@@ -20,6 +20,7 @@
   const PERIODO_DOT = { manha: "dot-manha", tarde: "dot-tarde", noite: "dot-noite" };
 
   const state = { ref: new Date(), items: [], loaded: false };
+  let lastFocused = null;
 
   function monthRange(ref) {
     const first = new Date(ref.getFullYear(), ref.getMonth(), 1);
@@ -33,12 +34,12 @@
   async function fetchMonth() {
     const { gridStart, gridEnd } = monthRange(state.ref);
 
+    // View pública: não expõe nome de professor, sala nem observações.
     const { data, error } = await db
-      .from("agendamentos")
-      .select("*")
+      .from("agenda_publica")
+      .select("data, periodo, quantidade, status")
       .gte("data", U.toISODate(gridStart))
       .lte("data", U.toISODate(gridEnd))
-      .neq("status", "cancelado")
       .order("data", { ascending: true });
 
     if (error) {
@@ -101,10 +102,14 @@
         dayItems.slice(0, 4).forEach((it) => {
           const dot = document.createElement("span");
           dot.className = `cal-dot ${PERIODO_DOT[it.periodo] || ""}`;
-          dot.style.background = dot.style.background || "var(--muted)";
           dots.appendChild(dot);
         });
         cell.appendChild(dots);
+
+        const count = document.createElement("span");
+        count.className = "cal-count";
+        count.textContent = dayItems.length > 4 ? "4+" : String(dayItems.length);
+        cell.appendChild(count);
       }
 
       cell.addEventListener("click", () => openDay(iso, d, dayItems));
@@ -135,12 +140,10 @@
             <div class="list-item">
               <span class="badge badge-info">${U.escapeHtml(U.periodoLabel(it.periodo))}</span>
               <div class="grow">
-                <div class="title">${U.escapeHtml(it.professor_nome || "Professor")}</div>
-                <div class="meta">
-                  ${U.escapeHtml(String(it.quantidade || 1))} Chromebook(s)
-                  ${it.sala ? " • Sala " + U.escapeHtml(it.sala) : ""}
-                  ${it.status === "pendente" ? " • aguardando aprovação" : ""}
-                </div>
+                <div class="title">${U.escapeHtml(String(it.quantidade || 1))} Chromebook(s)</div>
+                <div class="meta">${
+                  it.status === "pendente" ? "Aguardando aprovação" : "Confirmado"
+                }</div>
               </div>
             </div>`
             )
@@ -154,11 +157,15 @@
       : `<p class="empty" style="margin-top:1rem">Este dia já passou — não é possível agendar.</p>`;
 
     el.modalBody.innerHTML = itemsHtml + btnHtml;
+    lastFocused = document.activeElement;
     el.modal.hidden = false;
+    el.modalClose?.focus();
   }
 
   function closeModal() {
-    if (el.modal) el.modal.hidden = true;
+    if (!el.modal || el.modal.hidden) return;
+    el.modal.hidden = true;
+    if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
   }
 
   el.prev?.addEventListener("click", () => {
@@ -178,7 +185,27 @@
     if (e.target === el.modal) closeModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal();
+    if (!el.modal || el.modal.hidden) return;
+    if (e.key === "Escape") {
+      closeModal();
+      return;
+    }
+    if (e.key !== "Tab") return;
+
+    const focusable = Array.from(
+      el.modal.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    ).filter((node) => node.offsetParent !== null);
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   });
 
   fetchMonth();

@@ -2,6 +2,18 @@
   const { db } = window;
   const U = window.U;
 
+  /** Só aceita http/https; usado ao renderizar URLs vindas do banco. */
+  function safeUrl(value) {
+    try {
+      const url = new URL(String(value || "").trim(), window.location.href);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  let carrinhosCache = [];
+
   /* ============ TABS ============ */
   document.querySelectorAll(".admin-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -102,10 +114,10 @@
       .map(
         (b) => `
       <div class="banner-item list-item">
-        <img class="banner-thumb" src="${b.url}" alt="">
+        <img class="banner-thumb" src="${U.escapeHtml(safeUrl(b.url))}" alt="">
         <div class="grow">
           <div class="title">${U.escapeHtml(b.titulo || "Sem título")}</div>
-          <div class="meta">${b.ativo ? "Ativo" : "Inativo"} · ordem ${b.ordem}</div>
+          <div class="meta">${b.ativo ? "Ativo" : "Inativo"} · ordem ${Number(b.ordem) || 0}</div>
         </div>
         <div style="display:flex;gap:.4rem">
           <button class="btn btn-ghost btn-sm" data-toggle="${b.id}" data-ativo="${b.ativo}">
@@ -119,14 +131,19 @@
 
     el.querySelectorAll("[data-toggle]").forEach((btn) =>
       btn.addEventListener("click", async () => {
-        await db.from("banners").update({ ativo: btn.dataset.ativo !== "true" }).eq("id", btn.dataset.toggle);
+        const { error } = await db
+          .from("banners")
+          .update({ ativo: btn.dataset.ativo !== "true" })
+          .eq("id", btn.dataset.toggle);
+        if (error) return U.toast(error.message, "error");
         carregarBanners();
       })
     );
     el.querySelectorAll("[data-del]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         if (!confirm("Excluir banner?")) return;
-        await db.from("banners").delete().eq("id", btn.dataset.del);
+        const { error } = await db.from("banners").delete().eq("id", btn.dataset.del);
+        if (error) return U.toast(error.message, "error");
         carregarBanners();
       })
     );
@@ -163,8 +180,10 @@
      CARRINHOS
      ============================================================ */
   async function carregarCarrinhos() {
-    const { data } = await db.from("carrinhos").select("*").order("nome");
+    const { data, error } = await db.from("carrinhos").select("*").order("nome");
+    if (error) return U.toast(error.message, "error");
     const list = data || [];
+    carrinhosCache = list;
     document.getElementById("cr-total").textContent = `${list.length} carrinho(s)`;
     const host = document.getElementById("lista-carrinhos");
     const opts = document.getElementById("cb-carrinho");
@@ -197,7 +216,8 @@
     host.querySelectorAll("[data-del-carrinho]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         if (!confirm("Excluir carrinho? Os Chromebooks ficarão sem carrinho.")) return;
-        await db.from("carrinhos").delete().eq("id", btn.dataset.delCarrinho);
+        const { error } = await db.from("carrinhos").delete().eq("id", btn.dataset.delCarrinho);
+        if (error) return U.toast(error.message, "error");
         carregarCarrinhos();
         carregarChromebooks();
       })
@@ -243,7 +263,7 @@
         <td>${U.escapeHtml(c.nome)}</td>
         <td>${U.escapeHtml(c.numero_serie || "—")}</td>
         <td>${U.escapeHtml(c.numero_atribuido || "—")}</td>
-        <td>${c.polegadas ?? "—"}"</td>
+        <td>${c.polegadas != null ? U.escapeHtml(String(c.polegadas)) + " pol" : "—"}</td>
         <td>${U.escapeHtml(c.carrinho?.nome || "—")}</td>
         <td><span class="badge badge-info">${U.escapeHtml(c.status)}</span></td>
         <td><button class="btn btn-danger btn-sm" data-del-cb="${c.id}">Excluir</button></td>
@@ -254,7 +274,8 @@
     el.querySelectorAll("[data-del-cb]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         if (!confirm("Excluir Chromebook?")) return;
-        await db.from("chromebooks").delete().eq("id", btn.dataset.delCb);
+        const { error } = await db.from("chromebooks").delete().eq("id", btn.dataset.delCb);
+        if (error) return U.toast(error.message, "error");
         carregarChromebooks();
       })
     );
@@ -309,7 +330,12 @@
 
     el.querySelectorAll("[data-cargo]").forEach((sel) =>
       sel.addEventListener("change", async () => {
-        await db.from("perfis").update({ cargo: sel.value }).eq("id", sel.dataset.cargo);
+        const anterior = sel.value === "admin" ? "professor" : "admin";
+        const { error } = await db.from("perfis").update({ cargo: sel.value }).eq("id", sel.dataset.cargo);
+        if (error) {
+          sel.value = anterior;
+          return U.toast(error.message, "error");
+        }
         U.toast("Cargo atualizado.", "success");
       })
     );
@@ -319,7 +345,8 @@
         const u = data.find((x) => x.id === btn.dataset.editUser);
         const novo = prompt("Novo nome:", u.nome || "");
         if (novo === null) return;
-        await db.from("perfis").update({ nome: novo.trim() }).eq("id", u.id);
+        const { error } = await db.from("perfis").update({ nome: novo.trim() }).eq("id", u.id);
+        if (error) return U.toast(error.message, "error");
         carregarUsuarios();
       })
     );
@@ -359,7 +386,8 @@
     el.querySelectorAll("[data-del-ev]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         if (!confirm("Excluir evento?")) return;
-        await db.from("eventos_especiais").delete().eq("id", btn.dataset.delEv);
+        const { error } = await db.from("eventos_especiais").delete().eq("id", btn.dataset.delEv);
+        if (error) return U.toast(error.message, "error");
         carregarEventos();
       })
     );
@@ -398,12 +426,22 @@
   /* ============================================================
      HORÁRIOS
      ============================================================ */
+  const TURNO_LABEL = { manha: "Manhã", tarde: "Tarde", noite: "Noite" };
+  const DIA_LABEL = { padrao: "Seg–Qui", sexta: "Sexta" };
+
   async function carregarHorarios() {
-    const { data } = await db
+    const { data, error } = await db
       .from("horarios_aula")
       .select("*")
       .order("segmento")
       .order("ordem");
+
+    const host = document.getElementById("lista-horarios");
+    if (!host) return;
+    if (error) {
+      host.innerHTML = `<p class="empty">Erro ao carregar horários: ${U.escapeHtml(error.message)}</p>`;
+      return;
+    }
 
     const grupos = (data || []).reduce((acc, h) => {
       (acc[h.segmento] = acc[h.segmento] || []).push(h);
@@ -411,9 +449,6 @@
     }, {});
 
     const labels = { infantil: "Infantil", fund1: "Fund. 1", fund2: "Fund. 2", medio: "Médio", contraturno: "Contraturno" };
-
-    const host = document.getElementById("lista-horarios");
-    if (!host) return;
 
     if (!Object.keys(grupos).length) {
       host.innerHTML = `<p class="empty">Nenhum horário cadastrado.</p>`;
@@ -431,8 +466,13 @@
               (h) => `
             <div class="list-item">
               <span class="badge badge-info">${U.escapeHtml(h.rotulo)}</span>
-              <span class="grow">${h.hora_inicio} → ${h.hora_fim}</span>
-              <button class="btn btn-danger btn-sm" data-del-hr="${h.id}">×</button>
+              <span class="grow">
+                ${U.escapeHtml(String(h.hora_inicio).slice(0, 5))} → ${U.escapeHtml(String(h.hora_fim).slice(0, 5))}
+                <span class="meta">
+                  · ${TURNO_LABEL[h.turno] || "—"} · ${DIA_LABEL[h.dia_semana] || "Seg–Qui"}
+                </span>
+              </span>
+              <button class="btn btn-danger btn-sm" data-del-hr="${h.id}" aria-label="Excluir horário ${U.escapeHtml(h.rotulo)}">×</button>
             </div>`
             )
             .join("")}
@@ -443,7 +483,9 @@
 
     host.querySelectorAll("[data-del-hr]").forEach((btn) =>
       btn.addEventListener("click", async () => {
-        await db.from("horarios_aula").delete().eq("id", btn.dataset.delHr);
+        if (!confirm("Excluir este horário?")) return;
+        const { error } = await db.from("horarios_aula").delete().eq("id", btn.dataset.delHr);
+        if (error) return U.toast(error.message, "error");
         carregarHorarios();
       })
     );
@@ -452,13 +494,30 @@
   document.getElementById("form-horario")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
-    const { error } = await db.from("horarios_aula").insert({
+
+    const payload = {
       segmento: form.segmento.value,
       rotulo: form.rotulo.value.trim(),
       hora_inicio: form.hora_inicio.value,
       hora_fim: form.hora_fim.value,
       ordem: Number(form.ordem.value) || 0,
-    });
+      turno: form.turno?.value || null,
+      dia_semana: form.dia_semana?.value || "padrao",
+    };
+
+    if (payload.hora_fim <= payload.hora_inicio) {
+      return U.toast("O horário final deve ser depois do inicial.", "error");
+    }
+
+    let { error } = await db.from("horarios_aula").insert(payload);
+
+    // Compatibilidade com bancos antigos, sem as colunas turno/dia_semana
+    if (error && (error.code === "42703" || error.code === "PGRST204")) {
+      delete payload.turno;
+      delete payload.dia_semana;
+      ({ error } = await db.from("horarios_aula").insert(payload));
+    }
+
     if (error) return U.toast(error.message, "error");
     form.reset();
     carregarHorarios();
@@ -492,7 +551,15 @@
     el.querySelectorAll("[data-del-tm]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         if (!confirm("Excluir turma?")) return;
-        await db.from("turmas").delete().eq("id", btn.dataset.delTm);
+        const { error } = await db.from("turmas").delete().eq("id", btn.dataset.delTm);
+        if (error) {
+          return U.toast(
+            /foreign key|violates/i.test(error.message)
+              ? "Esta turma já tem agendamentos e não pode ser excluída."
+              : error.message,
+            "error"
+          );
+        }
         carregarTurmas();
       })
     );
@@ -515,39 +582,70 @@
   /* ============================================================
      AGENDAMENTOS (mantido)
      ============================================================ */
+  let agendamentosCache = [];
+
   async function carregarAgendamentos() {
     const filtro = document.getElementById("filtro-status")?.value || "";
     let q = db
       .from("agendamentos")
       .select("*, turma:turmas(nome), horario:horarios_aula(rotulo,hora_inicio,hora_fim), carrinho:carrinhos(nome)")
-      .order("data", { ascending: false });
+      .order("data", { ascending: false })
+      .limit(500);
     if (filtro) q = q.eq("status", filtro);
-    const { data } = await q;
+    const { data, error } = await q;
     const el = document.getElementById("tabela-agendamentos");
     if (!el) return;
 
-    if (!data?.length) {
+    if (error) {
+      el.innerHTML = `<tr><td colspan="8" class="empty">Erro: ${U.escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+
+    agendamentosCache = data || [];
+
+    if (!agendamentosCache.length) {
       el.innerHTML = `<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>`;
       return;
     }
-    el.innerHTML = data
+    el.innerHTML = agendamentosCache
       .map(
         (a) => `
       <tr>
         <td>${U.formatDate(a.data)}</td>
-        <td>${a.horario ? `${a.horario.rotulo} (${a.horario.hora_inicio}–${a.horario.hora_fim})` : U.periodoLabel(a.periodo)}</td>
+        <td>${a.horario ? `${U.escapeHtml(a.horario.rotulo)} (${U.escapeHtml(String(a.horario.hora_inicio).slice(0, 5))}–${U.escapeHtml(String(a.horario.hora_fim).slice(0, 5))})` : U.escapeHtml(U.periodoLabel(a.periodo))}</td>
         <td>${U.escapeHtml(a.professor_nome || "—")}</td>
         <td>${U.escapeHtml(a.turma?.nome || "—")}</td>
-        <td>${a.quantidade}</td>
-        <td>${U.escapeHtml(a.carrinho?.nome || "—")}</td>
-        <td><span class="badge badge-${a.status}">${a.status}</span></td>
+        <td>${Number(a.quantidade) || 0}</td>
         <td>
+          <select class="select" data-carrinho="${a.id}" style="padding:.3rem .5rem">
+            <option value="">—</option>
+            ${carrinhosCache
+              .map(
+                (c) =>
+                  `<option value="${c.id}" ${a.carrinho_id === c.id ? "selected" : ""}>${U.escapeHtml(c.nome)}</option>`
+              )
+              .join("")}
+          </select>
+        </td>
+        <td><span class="badge badge-${U.escapeHtml(a.status)}">${U.escapeHtml(a.status)}</span></td>
+        <td style="white-space:nowrap">
           ${a.status !== "aprovado" ? `<button class="btn btn-success btn-sm" data-acao="aprovado" data-id="${a.id}">Aprovar</button>` : ""}
           ${a.status !== "cancelado" ? `<button class="btn btn-danger btn-sm" data-acao="cancelado" data-id="${a.id}">Cancelar</button>` : ""}
         </td>
       </tr>`
       )
       .join("");
+
+    el.querySelectorAll("[data-carrinho]").forEach((sel) =>
+      sel.addEventListener("change", async () => {
+        const { error } = await db
+          .from("agendamentos")
+          .update({ carrinho_id: sel.value || null })
+          .eq("id", sel.dataset.carrinho);
+        if (error) return U.toast(error.message, "error");
+        U.toast("Carrinho atualizado.", "success");
+      })
+    );
 
     el.querySelectorAll("[data-acao]").forEach((btn) =>
       btn.addEventListener("click", async () => {
@@ -556,11 +654,52 @@
           .from("agendamentos")
           .update({ status: btn.dataset.acao })
           .eq("id", btn.dataset.id);
-        if (error) return U.toast(error.message, "error");
+        if (error) {
+          btn.disabled = false;
+          return U.toast(error.message, "error");
+        }
         carregarAgendamentos();
       })
     );
   }
+
+  function exportarAgendamentosCsv() {
+    if (!agendamentosCache.length) return U.toast("Nada para exportar.", "info");
+
+    const linhas = [
+      ["Data", "Horário", "Professor", "Turma", "Qtd", "Carrinho", "Status", "Sala", "Observações"],
+      ...agendamentosCache.map((a) => [
+        String(a.data).slice(0, 10),
+        a.horario ? a.horario.rotulo : U.periodoLabel(a.periodo),
+        a.professor_nome || "",
+        a.turma?.nome || "",
+        a.quantidade,
+        a.carrinho?.nome || "",
+        a.status,
+        a.sala || "",
+        a.observacoes || "",
+      ]),
+    ];
+
+    const csv = linhas
+      .map((linha) =>
+        linha
+          .map((campo) => `"${String(campo ?? "").replace(/"/g, '""')}"`)
+          .join(";")
+      )
+      .join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `agendamentos-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  document
+    .getElementById("btn-exportar-csv")
+    ?.addEventListener("click", exportarAgendamentosCsv);
 
   document.getElementById("filtro-status")?.addEventListener("change", carregarAgendamentos);
 })();

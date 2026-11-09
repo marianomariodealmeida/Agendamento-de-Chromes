@@ -47,6 +47,13 @@
       const dataParam = params.get("data");
       form.data.value = dataParam || U.toISODate(new Date());
 
+      // Não permite data no passado nem agendamento absurdamente distante.
+      const hoje = new Date();
+      const limite = new Date();
+      limite.setDate(limite.getDate() + 180);
+      form.data.min = U.toISODate(hoje);
+      form.data.max = U.toISODate(limite);
+
       // Recarrega horários quando a data muda (sexta-feira afeta o turno da tarde)
       form.data.addEventListener("change", () => {
         if (selTurma?.value) aoTrocarTurma();
@@ -109,7 +116,7 @@
       horarios
         .map(
           (h) =>
-            `<option value="${h.id}" data-inicio="${h.hora_inicio}" data-fim="${h.hora_fim}">` +
+            `<option value="${h.id}" data-inicio="${h.hora_inicio}" data-fim="${h.hora_fim}" data-turno="${U.escapeHtml(h.turno || turno || "")}">` +
             `${U.escapeHtml(h.rotulo)} (${h.hora_inicio} – ${h.hora_fim})` +
             `</option>`
         )
@@ -184,11 +191,12 @@
     }
 
     /* -------- Monta payload -------- */
+    const turnoHorario = horarioOpt?.dataset.turno || "";
     const payload = {
       usuario_id: session.user.id,
       professor_nome: perfil?.nome || session.user.email,
       data: dataStr,
-      periodo: "aula",
+      periodo: turnoHorario || "aula",
       quantidade,
       sala,
       observacoes,
@@ -224,8 +232,12 @@
     /* -------- Sucesso -------- */
     U.toast("Agendamento solicitado!", "success");
     form.reset();
-    form.data.value = U.toISODate(new Date());
-    if (selHorario) {
+    // Mantém a data e a turma para facilitar agendar vários horários no mesmo dia.
+    form.data.value = dataStr;
+    if (selTurma && turmaId) {
+      selTurma.value = turmaId;
+      await aoTrocarTurma();
+    } else if (selHorario) {
       selHorario.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
       selHorario.disabled = true;
     }
@@ -277,11 +289,11 @@
       it.sala ? "Sala " + U.escapeHtml(it.sala) : "",
     ].filter(Boolean).join(" • ");
 
-    const podeCancelar = it.status !== "cancelado" && it.status !== "aprovado";
+    const podeCancelar = it.status !== "cancelado";
 
     return `
       <div class="list-item">
-        <span class="badge badge-${it.status}">${U.escapeHtml(it.status)}</span>
+        <span class="badge badge-${U.escapeHtml(it.status)}">${U.escapeHtml(it.status)}</span>
         <div class="grow">
           <div class="title">${U.formatDate(it.data)} — ${horarioTxt}</div>
           <div class="meta">${meta}</div>
@@ -301,7 +313,7 @@
   }
 
   async function cancelar(btn) {
-    if (!confirm("Cancelar este agendamento?")) return;
+    if (!confirm("Cancelar este agendamento? A solicitação sai do calendário.")) return;
 
     btn.disabled = true;
     btn.textContent = "Cancelando...";

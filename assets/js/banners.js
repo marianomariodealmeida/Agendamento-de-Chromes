@@ -1,5 +1,16 @@
 (function () {
   const { db } = window;
+  const U = window.U;
+
+  /** Só aceita http/https; evita javascript:, data: e injeção de atributo. */
+  function safeUrl(value) {
+    try {
+      const url = new URL(String(value || "").trim(), window.location.href);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+    } catch (e) {
+      return "";
+    }
+  }
 
   async function carregarAtivos() {
     const { data } = await db
@@ -15,7 +26,7 @@
     const host = document.querySelector(selector);
     if (!host) return;
 
-    const banners = await carregarAtivos();
+    const banners = (await carregarAtivos()).filter((b) => safeUrl(b.url));
 
     // Fallback: sem banners → mantém comportamento atual
     if (!banners.length) {
@@ -30,7 +41,7 @@
           .map(
             (b, i) => `
           <div class="hero-slide${i === 0 ? " active" : ""}" data-index="${i}">
-            <img src="${b.url}" alt="${(b.titulo || "").replace(/"/g, "&quot;")}" loading="${i === 0 ? "eager" : "lazy"}">
+            <img src="${U.escapeHtml(safeUrl(b.url))}" alt="${U.escapeHtml(b.titulo || "")}" loading="${i === 0 ? "eager" : "lazy"}">
           </div>`
           )
           .join("")}
@@ -62,11 +73,26 @@
       d.addEventListener("click", () => go(Number(d.dataset.goto)))
     );
 
-    let timer = setInterval(() => go(current + 1), 5000);
-    host.addEventListener("mouseenter", () => clearInterval(timer));
-    host.addEventListener("mouseleave", () => {
+    let timer = null;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const play = () => {
+      if (reduceMotion || timer) return;
       timer = setInterval(() => go(current + 1), 5000);
-    });
+    };
+    const pause = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+
+    play();
+    host.addEventListener("mouseenter", pause);
+    host.addEventListener("mouseleave", play);
+    host.addEventListener("focusin", pause);
+    host.addEventListener("focusout", play);
+    document.addEventListener("visibilitychange", () =>
+      document.hidden ? pause() : play()
+    );
   }
 
   window.Banners = { carregarAtivos, renderHero };
