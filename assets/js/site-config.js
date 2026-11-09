@@ -12,26 +12,38 @@
   function aplicar(cfg) {
     if (!cfg) return;
     const root = document.documentElement;
+    const primary = isHex(cfg.cor_primaria) ? cfg.cor_primaria : "#2563eb";
+    const secondary = isHex(cfg.cor_secundaria) ? cfg.cor_secundaria : "#06b6d4";
 
-    root.style.setProperty("--primary", cfg.cor_primaria || "#2563eb");
-    root.style.setProperty("--primary-2", cfg.cor_secundaria || "#06b6d4");
-    root.style.setProperty("--primary-soft", hexToRgba(cfg.cor_primaria, 0.15));
+    root.style.setProperty("--primary", primary);
+    root.style.setProperty("--primary-2", secondary);
+    root.style.setProperty("--primary-soft", hexToRgba(primary, 0.15));
 
     document.querySelectorAll("[data-site-name]").forEach((el) => {
       el.textContent = cfg.nome_site || "ChromeAgenda";
     });
-    document.querySelectorAll("[data-home-title]").forEach((el) => {
-      el.textContent = cfg.titulo_home || "";
-    });
-    document.querySelectorAll("[data-home-subtitle]").forEach((el) => {
-      el.textContent = cfg.subtitulo_home || "";
-    });
+    // Só sobrescreve quando o admin realmente definiu um texto
+    // (antes, um valor vazio apagava o título da home).
+    if (cfg.titulo_home) {
+      document.querySelectorAll("[data-home-title]").forEach((el) => {
+        el.textContent = cfg.titulo_home;
+      });
+    }
+    if (cfg.subtitulo_home) {
+      document.querySelectorAll("[data-home-subtitle]").forEach((el) => {
+        el.textContent = cfg.subtitulo_home;
+      });
+    }
     document.querySelectorAll("[data-btn-primary]").forEach((el) => {
       el.textContent = cfg.texto_botao_primario || "Fazer agendamento";
     });
     document.querySelectorAll("[data-btn-secondary]").forEach((el) => {
       el.textContent = cfg.texto_botao_secundario || "Ver calendário";
     });
+  }
+
+  function isHex(value) {
+    return /^#[0-9a-f]{6}$/i.test(String(value || "").trim());
   }
 
   function hexToRgba(hex, a = 1) {

@@ -498,3 +498,48 @@ img, input, select, textarea, button { max-width: 100%; }
   .cal-dot { width: 5px; height: 5px; }
   .stats { grid-template-columns: 1fr; }
 }
+
+/* ============ ACESSIBILIDADE / EXTRAS ============ */
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Contador de agendamentos no dia (não depende só de cor) */
+.cal-count {
+  position: absolute;
+  top: .35rem;
+  right: .4rem;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: .66rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .cal-day:hover { transform: none; }
+}
+
+@media print {
+  .site-header, .site-footer, .admin-tabs, .btn,
+  .hero-actions, .cal-toolbar, .modal { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+}

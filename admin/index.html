@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   <title>Dashboard Admin — ChromeAgenda</title>
 
   <script>
@@ -247,6 +251,9 @@
             <option value="aprovado">Aprovados</option>
             <option value="cancelado">Cancelados</option>
           </select>
+          <button class="btn btn-ghost btn-sm" id="btn-exportar-csv" type="button">
+            Exportar CSV
+          </button>
         </div>
         <div class="table-wrap">
           <table>
@@ -335,6 +342,23 @@
               </div>
               <div class="grid-2">
                 <div class="field">
+                  <label>Turno</label>
+                  <select class="select" name="turno">
+                    <option value="manha">Manhã</option>
+                    <option value="tarde">Tarde</option>
+                    <option value="noite">Noite</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Dia da semana</label>
+                  <select class="select" name="dia_semana">
+                    <option value="padrao">Segunda a quinta</option>
+                    <option value="sexta">Sexta-feira</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
                   <label>Início</label>
                   <input class="input" type="time" name="hora_inicio" required />
                 </div>
@@ -380,6 +404,7 @@
               <select class="select" name="turno">
                 <option value="manha">Manhã</option>
                 <option value="tarde">Tarde</option>
+                <option value="noite">Noite</option>
               </select>
             </div>
           </div>

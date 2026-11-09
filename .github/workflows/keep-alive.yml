@@ -1,0 +1,30 @@
+name: Keep-alive Supabase
+
+# Projetos free do Supabase são pausados após alguns dias sem uso.
+# Este workflow faz um GET leve a cada 3 dias para manter o projeto acordado.
+# Usa a anon key que já está pública no repositório — não precisa de segredo.
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping no REST do Supabase
+        run: |
+          set -e
+          URL=$(grep -oP 'SUPABASE_URL = "\K[^"]+' assets/js/supabase-client.js)
+          KEY=$(grep -oP 'SUPABASE_ANON_KEY = "\K[^"]+' assets/js/supabase-client.js)
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$URL/rest/v1/configuracoes_site?select=id&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "HTTP $code"
+          test "$code" = "200"
