@@ -32,6 +32,7 @@ assets/js/
 
 supabase/
   00_diagnostico.sql          consulta o estado atual (não altera nada)
+  01_transicao_view.sql       cria só a view pública (deploy sem downtime)
   schema.sql                  schema completo e idempotente (fonte única)
   migrations/                 mesma DDL, para quem usa a CLI
   seed.sql                    dados de exemplo opcionais
@@ -51,6 +52,17 @@ scripts/check-assets.mjs      confere se todo asset referenciado existe
    - Ele cria tabelas, colunas, índices, triggers, policies de RLS, a view
      pública `agenda_publica`, o bucket `banners` e a linha inicial de
      `configuracoes_site`.
+
+> **Atualizando um site que já está no ar:** rode primeiro
+> [`supabase/01_transicao_view.sql`](supabase/01_transicao_view.sql), que só
+> cria a view pública. Depois publique o front-end novo e, por último,
+> `schema.sql` (que revoga a leitura anônima da tabela `agendamentos`).
+> Assim o calendário não fica fora do ar durante o deploy.
+
+> **Projeto pausado:** no plano free o banco é pausado após alguns dias sem
+> uso. Restaure em *Project Settings → General* ou com
+> `POST /v1/projects/{ref}/restore`. O workflow [`keep-alive`](.github/workflows/keep-alive.yml)
+> evita que isso volte a acontecer.
 3. Copie **Project URL** e **anon public key** (Settings → API) para
    `assets/js/supabase-client.js`.
 4. Em **Authentication → URL Configuration**, defina:
@@ -92,7 +104,7 @@ Depois disso o login por `admin-login.html` funciona.
 | Tabela | Anônimo | Professor | Admin |
 |---|---|---|---|
 | `perfis` | — | lê/edita o próprio (sem `cargo`) | tudo |
-| `agendamentos` | só via `agenda_publica` | cria o próprio; cancela o próprio | tudo |
+| `agendamentos` | só via `agenda_publica` | lê/cria/cancela **só os próprios** | tudo |
 | `carrinhos`, `chromebooks`, `turmas`, `horarios_aula`, `eventos_especiais` | leitura | leitura | tudo |
 | `configuracoes_site`, `banners` | leitura | leitura | tudo |
 | `storage.objects` (bucket `banners`) | leitura | leitura | escrita |
@@ -106,8 +118,8 @@ Regras aplicadas por trigger (não só pelo front-end):
 - eventos especiais e antecedência mínima valem também para quem chamar a API direto;
 - `aprovado_por` / `aprovado_em` registram a auditoria.
 
-A view `agenda_publica` expõe apenas `data`, `periodo`, `quantidade` e `status`
-— sem nome de professor, sala ou observações.
+A view `agenda_publica` expõe apenas `data`, `periodo`, `horario_id`,
+`quantidade` e `status` — sem nome de professor, sala ou observações.
 
 ---
 
@@ -172,6 +184,24 @@ python -m http.server 8080
    Deve retornar apenas as 5 colunas públicas.
 
 4. Como admin, os passos 1 e 2 devem funcionar.
+
+### Resultado da verificação aplicada em 09/11/2026
+
+| # | Cenário | Esperado | Resultado |
+|---|---|---|---|
+| 1 | professor tenta se promover a admin | erro `42501` | ✅ |
+| 2 | professor tenta aprovar o próprio pedido | erro `42501` | ✅ |
+| 3 | professor tenta trocar data/horário do pedido | erro `42501` | ✅ |
+| 4 | professor tenta renomear outro perfil | 0 linhas afetadas | ✅ |
+| 5 | professor cancela o próprio pedido pendente | permitido | ✅ |
+| 6 | admin altera cargo de professor | permitido | ✅ |
+| 7 | admin aprova pedido de outro (grava `aprovado_por`) | permitido | ✅ |
+| 8 | professor lê pedidos de outro colega | 0 linhas | ✅ |
+| 9 | anônimo lê `public.agendamentos` | `401` / `42501` | ✅ |
+| 10 | colunas de `agenda_publica` | só as 5 públicas | ✅ |
+| 11 | dois pedidos no mesmo horário (2 carrinhos) | permitido | ✅ |
+| 12 | terceiro pedido no mesmo horário | erro `P0004` | ✅ |
+| 13 | pedido para hoje, dentro da antecedência mínima | erro `P0003` | ✅ |
 
 ---
 
