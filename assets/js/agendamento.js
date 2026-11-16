@@ -255,7 +255,9 @@
     const dataStr     = form.data.value;
     const turmaId     = selTurma?.value || null;
     const horarioId   = selHorario?.value || null;
-    const quantidade  = Number(form.quantidade.value) || 1;
+    // O formulário não pede mais a quantidade: o valor fica neutro (1) para
+    // manter compatibilidade com a coluna `agendamentos.quantidade`.
+    const quantidade  = Number(form.quantidade?.value) || 1;
     const sala        = form.sala.value.trim() || null;
     const observacoes = form.observacoes.value.trim() || null;
 
@@ -516,7 +518,6 @@
       : "";
 
     const meta = [
-      `${it.quantidade} Chromebook(s)`,
       turmaTxt,
       it.sala ? "Sala " + U.escapeHtml(it.sala) : "",
     ].filter(Boolean).join(" • ");
