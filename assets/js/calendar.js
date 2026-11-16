@@ -39,7 +39,7 @@
     const [agendaRes, horariosRes] = await Promise.all([
       db
         .from("agenda_publica")
-        .select("data, periodo, horario_id, status")
+        .select("*")
         .gte("data", U.toISODate(gridStart))
         .lte("data", U.toISODate(gridEnd))
         .order("data", { ascending: true }),
@@ -162,18 +162,33 @@
     const itemsHtml = items.length
       ? `<div class="list">
           ${items
-            .map(
-              (it) => `
+            .map((it) => {
+              const turno = U.periodoLabel(it.periodo) || "Turno";
+              const turnoKey = ["manha", "tarde", "noite"].includes(it.periodo)
+                ? it.periodo
+                : "aula";
+              const turma = String(it.turma_nome || "").trim();
+              const professor = String(it.professor_nome || "").trim();
+
+              return `
             <div class="list-item">
-              <span class="badge badge-info">${U.escapeHtml(U.periodoLabel(it.periodo))}</span>
+              <span class="badge badge-turno badge-turno-${turnoKey}">${U.escapeHtml(turno)}</span>
               <div class="grow">
                 <div class="title">${U.escapeHtml(rotuloHorario(it))}</div>
                 <div class="meta">${
                   it.status === "pendente" ? "Aguardando aprovação" : "Confirmado"
                 }</div>
+                ${
+                  turma || professor
+                    ? `<div class="meta cal-day-details">
+                        ${turma ? `<span><b>Turma:</b> ${U.escapeHtml(turma)}</span>` : ""}
+                        ${professor ? `<span><b>Agendado por:</b> ${U.escapeHtml(professor)}</span>` : ""}
+                      </div>`
+                    : ""
+                }
               </div>
-            </div>`
-            )
+            </div>`;
+            })
             .join("")}
         </div>`
       : `<p class="empty">Nenhum agendamento neste dia.</p>`;

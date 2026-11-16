@@ -119,8 +119,9 @@ Regras aplicadas por trigger (não só pelo front-end):
 - eventos especiais e antecedência mínima valem também para quem chamar a API direto;
 - `aprovado_por` / `aprovado_em` registram a auditoria.
 
-A view `agenda_publica` expõe apenas `data`, `periodo`, `horario_id`,
-`quantidade` e `status` — sem nome de professor, sala ou observações.
+A view `agenda_publica` expõe `data`, `periodo`, `horario_id`,
+`quantidade`, `status`, `professor_nome` e `turma_nome` — sem sala ou
+observações.
 
 ---
 
@@ -182,7 +183,7 @@ python -m http.server 8080
    ```
    /rest/v1/agenda_publica?select=*
    ```
-   Deve retornar apenas as 5 colunas públicas.
+   Deve retornar apenas as colunas públicas da view (sem sala/observações).
 
 4. Como admin, os passos 1 e 2 devem funcionar.
 
@@ -199,7 +200,7 @@ python -m http.server 8080
 | 7 | admin aprova pedido de outro (grava `aprovado_por`) | permitido | ✅ |
 | 8 | professor lê pedidos de outro colega | 0 linhas | ✅ |
 | 9 | anônimo lê `public.agendamentos` | `401` / `42501` | ✅ |
-| 10 | colunas de `agenda_publica` | só as 5 públicas | ✅ |
+| 10 | colunas de `agenda_publica` | sem sala/observações | ✅ |
 | 11 | dois pedidos no mesmo horário (2 carrinhos) | permitido | ✅ |
 | 12 | terceiro pedido no mesmo horário | erro `P0004` | ✅ |
 | 13 | pedido para hoje, dentro da antecedência mínima | erro `P0003` | ✅ |

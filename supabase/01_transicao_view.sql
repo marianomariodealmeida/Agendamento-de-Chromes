@@ -9,11 +9,14 @@ select
   a.periodo,
   a.horario_id,
   a.quantidade,
-  a.status
+  a.status,
+  a.professor_nome,
+  t.nome as turma_nome
 from public.agendamentos a
+left join public.turmas t on t.id = a.turma_id
 where a.status <> 'cancelado';
 
 comment on view public.agenda_publica is
-  'Calendario publico: apenas data, periodo, quantidade e status. Sem nome, sala ou observacoes.';
+  'Calendario publico: data, periodo, horario, quantidade, status, professor e turma. Sem sala ou observacoes.';
 
 grant select on public.agenda_publica to anon, authenticated;
