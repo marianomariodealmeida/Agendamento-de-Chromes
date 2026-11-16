@@ -138,7 +138,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Criado em</th><th></th></tr>
+              <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Criado em</th><th>Ações</th></tr>
             </thead>
             <tbody id="tabela-usuarios">
               <tr><td colspan="5" class="empty">Carregando…</td></tr>
@@ -423,6 +423,36 @@
     </div>
 
   </main>
+
+  <!-- ============ MODAL: LOG DE FALHAS (estilo terminal) ============ -->
+  <div class="terminal-modal" id="modal-log" hidden>
+    <div class="terminal-window" role="dialog" aria-modal="true" aria-labelledby="log-titulo">
+      <div class="terminal-bar">
+        <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="terminal-title" id="log-titulo">falhas.log</span>
+        <div class="terminal-actions">
+          <button class="term-action" id="log-recarregar" type="button" title="Recarregar">↻</button>
+          <button class="term-action" id="log-copiar" type="button" title="Copiar log">copiar</button>
+          <button class="term-action term-close" id="log-fechar" type="button" title="Fechar (Esc)">✕</button>
+        </div>
+      </div>
+
+      <div class="terminal-meta">
+        <span class="term-path">~/chromeagenda/falhas</span>
+        <span class="term-user" id="log-usuario">—</span>
+        <span class="term-count" id="log-total">—</span>
+      </div>
+
+      <div class="terminal-body" id="log-corpo" tabindex="0" aria-live="polite">
+        <p class="term-muted">$ aguardando…</p>
+      </div>
+
+      <div class="terminal-status">
+        <span><kbd>Esc</kbd> fechar · <kbd>↻</kbd> atualizar</span>
+        <span id="log-status">pronto</span>
+      </div>
+    </div>
+  </div>
 
   <footer class="site-footer">
     <div class="container footer-inner">

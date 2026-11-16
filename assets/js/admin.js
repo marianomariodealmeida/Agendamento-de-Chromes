@@ -323,7 +323,12 @@
           </select>
         </td>
         <td>${U.formatDate(u.created_at?.slice(0, 10))}</td>
-        <td><button class="btn btn-ghost btn-sm" data-edit-user="${u.id}">Editar</button></td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" data-log-user="${u.id}" title="Ver falhas de agendamento">&#62;_ Log</button>
+            <button class="btn btn-ghost btn-sm" data-edit-user="${u.id}">Editar</button>
+          </div>
+        </td>
       </tr>`
       )
       .join("");
@@ -340,6 +345,13 @@
       })
     );
 
+    el.querySelectorAll("[data-log-user]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const u = data.find((x) => x.id === btn.dataset.logUser);
+        if (u) abrirLogUsuario(u);
+      })
+    );
+
     el.querySelectorAll("[data-edit-user]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         const u = data.find((x) => x.id === btn.dataset.editUser);
@@ -351,6 +363,164 @@
       })
     );
   }
+
+  /* ============================================================
+     LOG DE FALHAS (terminal)
+     ============================================================ */
+  const modalLog   = document.getElementById("modal-log");
+  const logCorpo   = document.getElementById("log-corpo");
+  const logUsuarioEl = document.getElementById("log-usuario");
+  const logTotalEl = document.getElementById("log-total");
+  const logStatusEl = document.getElementById("log-status");
+
+  let logUsuarioAtual = null;
+  let logCache = [];
+
+  function fecharLog() {
+    if (!modalLog || modalLog.hidden) return;
+    modalLog.hidden = true;
+    liberarScroll();
+    logUsuarioAtual = null;
+    logCache = [];
+  }
+
+  function liberarScroll() {
+    document.body.style.overflow = "";
+  }
+
+  function abrirLogUsuario(u) {
+    if (!modalLog) return;
+    logUsuarioAtual = u;
+    modalLog.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    logUsuarioEl.textContent = `${u.nome || "sem nome"} <${u.email || "sem e-mail"}>`;
+    logTotalEl.textContent = "…";
+    logCorpo.scrollTop = 0;
+    logCorpo.focus({ preventScroll: true });
+    carregarLog();
+  }
+
+  function falhaNoLog(error) {
+    const detalhe = U.escapeHtml(error?.message || "erro desconhecido");
+    const semTabela = /does not exist|não existe|schema cache|PGRST205|42P01/i.test(
+      `${error?.code || ""} ${error?.message || ""}`
+    );
+    logTotalEl.textContent = "0 falhas";
+    logCorpo.innerHTML = `
+      <p class="term-cmd"><span class="term-prompt">admin@chromeagenda</span>:<span class="term-path">~/falhas</span>$ tail -n 200 falhas.log</p>
+      <p class="term-error">tail: cannot open 'falhas.log' for reading: ${detalhe}</p>
+      ${
+        semTabela
+          ? `<p class="term-hint">A tabela de log ainda não existe no banco.<br>
+             No SQL Editor do Supabase, execute o arquivo
+             <code>supabase/migrations/20261116000000_log_falhas_agendamento.sql</code>
+             (ou rode <code>supabase/schema.sql</code> novamente).</p>`
+          : `<p class="term-hint">Confirme se sua sessão é de administrador e tente novamente.</p>`
+      }`;
+    logStatusEl.textContent = "erro";
+  }
+
+  function renderEntradaLog(t, index) {
+    const quando = t.created_at
+      ? new Date(t.created_at).toLocaleString("pt-BR")
+      : "data desconhecida";
+
+    const ctx = t.contexto && typeof t.contexto === "object" ? t.contexto : {};
+    const campos = [
+      t.data_solicitada ? ["data", U.formatDate(t.data_solicitada)] : null,
+      t.horario_rotulo ? ["horário", t.horario_rotulo] : null,
+      t.turma_nome ? ["turma", t.turma_nome] : null,
+      t.quantidade != null ? ["qtd", `${t.quantidade} Chromebook(s)`] : null,
+      ctx.sala ? ["sala", ctx.sala] : null,
+      ctx.observacoes ? ["obs", ctx.observacoes] : null,
+    ].filter(Boolean);
+
+    return `
+      <article class="term-entry">
+        <div class="term-entry-head">
+          <span class="term-index">#${String(index).padStart(3, "0")}</span>
+          <span class="term-ts">[${U.escapeHtml(quando)}]</span>
+          <span class="term-sev">FALHA</span>
+          <span class="term-code">${U.escapeHtml(t.codigo || "SEM_CODIGO")}</span>
+          <span class="term-etapa">${U.escapeHtml(t.etapa || "cliente")}</span>
+        </div>
+        <p class="term-msg">${U.escapeHtml(t.motivo || "Falha sem descrição")}</p>
+        ${
+          campos.length
+            ? `<div class="term-fields">${campos
+                .map(
+                  ([chave, valor]) =>
+                    `<span><b>${chave}</b> ${U.escapeHtml(String(valor))}</span>`
+                )
+                .join("")}</div>`
+            : ""
+        }
+      </article>`;
+  }
+
+  async function carregarLog() {
+    if (!logUsuarioAtual) return;
+    const u = logUsuarioAtual;
+
+    logStatusEl.textContent = "lendo…";
+    logCorpo.innerHTML = `<p class="term-cmd"><span class="term-prompt">admin@chromeagenda</span>:<span class="term-path">~/falhas</span>$ tail -n 200 falhas.log</p>
+      <p class="term-muted">carregando registros…</p>`;
+
+    const { data, error } = await db
+      .from("tentativas_agendamento")
+      .select("*")
+      .eq("usuario_id", u.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    // O admin pode ter fechado ou trocado de usuário enquanto a consulta rodava.
+    if (!logUsuarioAtual || logUsuarioAtual.id !== u.id) return;
+
+    if (error) {
+      falhaNoLog(error);
+      return;
+    }
+
+    logCache = data || [];
+    logTotalEl.textContent = `${logCache.length} falha(s)`;
+
+    const prompt = `<p class="term-cmd"><span class="term-prompt">admin@chromeagenda</span>:<span class="term-path">~/falhas</span>$ tail -n 200 falhas.log</p>`;
+
+    if (!logCache.length) {
+      logCorpo.innerHTML = `${prompt}
+        <p class="term-ok">nenhuma falha registrada para este usuário.</p>
+        <p class="term-muted">Quando um agendamento for recusado (antecedência, evento, conflito ou erro do servidor), ele aparece aqui.</p>`;
+      logStatusEl.textContent = "0 registro(s)";
+      return;
+    }
+
+    logCorpo.innerHTML =
+      prompt +
+      logCache.map((t, i) => renderEntradaLog(t, logCache.length - i)).join("") +
+      `<p class="term-cmd term-end"><span class="term-prompt">admin@chromeagenda</span>:<span class="term-path">~/falhas</span>$ <span class="term-cursor"></span></p>`;
+
+    logStatusEl.textContent = `atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
+  }
+
+  document.getElementById("log-fechar")?.addEventListener("click", fecharLog);
+  document.getElementById("log-recarregar")?.addEventListener("click", carregarLog);
+  document.getElementById("log-copiar")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(logCorpo.innerText);
+      logStatusEl.textContent = "log copiado";
+    } catch (e) {
+      logStatusEl.textContent = "não foi possível copiar";
+    }
+  });
+
+  modalLog?.addEventListener("click", (e) => {
+    if (e.target === modalLog) fecharLog();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modalLog && !modalLog.hidden) fecharLog();
+  });
 
   /* ============================================================
      EVENTOS

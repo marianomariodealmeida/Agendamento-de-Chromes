@@ -107,6 +107,7 @@ Depois disso o login por `admin-login.html` funciona.
 | `agendamentos` | só via `agenda_publica` | lê/cria/cancela **só os próprios** | tudo |
 | `carrinhos`, `chromebooks`, `turmas`, `horarios_aula`, `eventos_especiais` | leitura | leitura | tudo |
 | `configuracoes_site`, `banners` | leitura | leitura | tudo |
+| `tentativas_agendamento` (log de falhas) | — | grava só via RPC | lê tudo |
 | `storage.objects` (bucket `banners`) | leitura | leitura | escrita |
 
 Regras aplicadas por trigger (não só pelo front-end):
@@ -215,7 +216,27 @@ O workflow `CI` roda em todo push/PR:
 
 ---
 
-## 9. Observações
+## 9. Log de falhas de agendamento
+
+Cada tentativa recusada no painel do professor é registrada em
+`public.tentativas_agendamento` (data, horário, turma, quantidade, etapa,
+código e motivo). No dashboard, aba **Usuários**, o botão **`>_ Log`** de cada
+pessoa abre uma janela flutuante em estilo terminal Linux com o histórico.
+
+- O vínculo com o professor vem de `auth.uid()` dentro da RPC
+  `registrar_falha_agendamento`; ninguém grava falha no nome de outra pessoa.
+- O professor não lê o histórico. Só o admin tem policy de `select`.
+- A tabela/RLS/RPC já estão em `supabase/schema.sql`. Para um banco que já está
+  no ar, rode também
+  `supabase/migrations/20261116000000_log_falhas_agendamento.sql`.
+- O log é gravado pelo front-end depois que o servidor recusa o INSERT. Isso é
+  necessário porque o trigger `valida_agendamento` desfaz a transação inteira
+  ao lançar `P0001`–`P0004` — um log escrito dentro dela também seria desfeito.
+  Chamadas feitas direto na API (fora do painel) não passam por esse registro.
+
+---
+
+## 10. Observações
 
 - A `anon key` é pública por definição e pode ficar no repositório. A segurança
   vem do RLS. **Nunca** commite a `service_role key`.

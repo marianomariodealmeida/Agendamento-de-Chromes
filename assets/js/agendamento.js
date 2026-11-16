@@ -33,6 +33,40 @@
     contraturno:"Contraturno",
   };
 
+  /* ============================================================ LOG DE FALHAS */
+  function nomeTurmaSelecionada() {
+    const opt = selTurma?.options?.[selTurma.selectedIndex];
+    return opt && opt.value ? opt.textContent.trim() : null;
+  }
+
+  function rotuloHorarioSelecionado() {
+    const opt = selHorario?.options?.[selHorario.selectedIndex];
+    return opt && opt.value ? opt.textContent.trim() : null;
+  }
+
+  /**
+   * Envia a tentativa que falhou para a tabela de log (visível ao admin).
+   * Nunca interrompe o fluxo do professor: se o log falhar, apenas avisa
+   * no console. Não usamos await nos pontos de erro para não atrasar o toast.
+   */
+  async function registrarFalha(etapa, codigo, motivo, dados = {}) {
+    try {
+      const { error } = await db.rpc("registrar_falha_agendamento", {
+        p_motivo: motivo,
+        p_codigo: codigo || null,
+        p_etapa: etapa,
+        p_data: dados.data || null,
+        p_horario_rotulo: dados.horario || null,
+        p_turma_nome: dados.turma || null,
+        p_quantidade: Number.isFinite(dados.quantidade) ? dados.quantidade : null,
+        p_contexto: dados.contexto || {},
+      });
+      if (error) console.warn("[agendamento] log de falha:", error.message);
+    } catch (err) {
+      console.warn("[agendamento] log de falha:", err?.message || err);
+    }
+  }
+
   /* ============================================================ INIT */
   async function init() {
     session = await Auth.requireAuth("login.html");
@@ -137,12 +171,43 @@
     const sala        = form.sala.value.trim() || null;
     const observacoes = form.observacoes.value.trim() || null;
 
+    const turmaNome     = nomeTurmaSelecionada();
+    const horarioRotulo = rotuloHorarioSelecionado();
+
+    /** Dispara o log da falha com o contexto do formulário. */
+    const falha = (etapa, codigo, motivo, extra = {}) => {
+      void registrarFalha(etapa, codigo, motivo, {
+        data: dataStr || null,
+        turma: turmaNome,
+        horario: horarioRotulo,
+        quantidade,
+        contexto: {
+          turma_id: turmaId,
+          horario_id: horarioId,
+          sala,
+          observacoes,
+          ...extra,
+        },
+      });
+    };
+
     /* -------- Validações básicas -------- */
-    if (!dataStr)   return U.toast("Escolha uma data.", "error");
-    if (!turmaId)   return U.toast("Selecione a turma.", "error");
-    if (!horarioId) return U.toast("Selecione o horário de aula.", "error");
-    if (quantidade < 1 || quantidade > 40)
+    if (!dataStr) {
+      falha("formulario", "CAMPO_OBRIGATORIO", "Escolha uma data para o agendamento.");
+      return U.toast("Escolha uma data.", "error");
+    }
+    if (!turmaId) {
+      falha("formulario", "CAMPO_OBRIGATORIO", "Nenhuma turma foi selecionada.");
+      return U.toast("Selecione a turma.", "error");
+    }
+    if (!horarioId) {
+      falha("formulario", "CAMPO_OBRIGATORIO", "Nenhum horário de aula foi selecionado.");
+      return U.toast("Selecione o horário de aula.", "error");
+    }
+    if (quantidade < 1 || quantidade > 40) {
+      falha("formulario", "QUANTIDADE_INVALIDA", "Quantidade de Chromebooks fora do limite (1 a 40).");
       return U.toast("Quantidade deve ser entre 1 e 40.", "error");
+    }
 
     /* -------- Bloqueio antecipado -------- */
     const horasBloq  = await Horarios.bloqueioHoras();
@@ -157,6 +222,10 @@
         `Antecedência mínima de ${horasBloq}h. ` +
         `Escolha um horário a partir de ` +
         new Date(agora.getTime() + horasBloq * 36e5).toLocaleString("pt-BR");
+      falha("cliente", "BLOQUEIO_ANTECEDENCIA", msg, {
+        horas_bloqueio: horasBloq,
+        horas_de_antecedencia: Math.round(diffHoras * 100) / 100,
+      });
       if (avisoEl) { avisoEl.style.display = "block"; avisoEl.textContent = "⚠️ " + msg; }
       return U.toast(msg, "error", 5500);
     } else if (avisoEl) {
@@ -168,6 +237,10 @@
     if (eventos.length) {
       const ev = eventos[0];
       const msg = `Data bloqueada: ${ev.titulo} (${U.formatDate(ev.data_inicio)} → ${U.formatDate(ev.data_fim)})`;
+      falha("cliente", "P0002", msg, {
+        evento_id: ev.id,
+        evento_titulo: ev.titulo,
+      });
       if (avisoEl) { avisoEl.style.display = "block"; avisoEl.textContent = "🚫 " + msg; }
       return U.toast(msg, "error", 5500);
     } else if (avisoEl) {
@@ -183,6 +256,11 @@
     if (conflitoErr) {
       console.warn("[agendamento] rpc conflito:", conflitoErr.message);
     } else if (conflito) {
+      falha(
+        "cliente",
+        "P0004",
+        "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso."
+      );
       return U.toast(
         "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso.",
         "error",
@@ -215,18 +293,33 @@
     btn.textContent = "Solicitar agendamento";
 
     if (error) {
+      let msg;
+      let ms = 6500;
       switch (error.code) {
         case "P0001":
-          return U.toast("Este horário já está cheio. Escolha outro.", "error", 5500);
+          msg = "Este horário já está cheio. Escolha outro.";
+          ms = 5500;
+          break;
         case "P0002":
-          return U.toast(error.message, "error", 6500);   // evento especial
+          msg = error.message;   // evento especial
+          break;
         case "P0003":
-          return U.toast(error.message, "error", 6500);   // antecedência mínima
+          msg = error.message;   // antecedência mínima
+          break;
         case "P0004":
-          return U.toast(error.message, "error", 6500);   // 2 carrinhos em uso
+          msg = error.message;   // 2 carrinhos em uso
+          break;
         default:
-          return U.toast("Erro: " + error.message, "error", 6000);
+          msg = "Erro: " + error.message;
+          ms = 6000;
       }
+
+      falha("servidor", error.code || "ERRO_SERVIDOR", error.message || msg, {
+        detalhes: error.details || null,
+        hint: error.hint || null,
+        mensagem_exibida: msg,
+      });
+      return U.toast(msg, "error", ms);
     }
 
     /* -------- Sucesso -------- */

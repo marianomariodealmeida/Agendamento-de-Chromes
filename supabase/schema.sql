@@ -120,6 +120,24 @@ create table if not exists public.banners (
   created_at timestamptz not null default now()
 );
 
+-- Histórico das tentativas de agendamento que falharam (visível só para admin).
+create table if not exists public.tentativas_agendamento (
+  id               uuid primary key default gen_random_uuid(),
+  usuario_id       uuid not null references auth.users(id) on delete cascade,
+  professor_nome   text,
+  professor_email  text,
+  data_solicitada  date,
+  horario_rotulo   text,
+  turma_nome       text,
+  quantidade       int,
+  etapa            text not null default 'cliente',
+  codigo           text,
+  motivo           text not null,
+  contexto         jsonb not null default '{}'::jsonb,
+  user_agent       text,
+  created_at       timestamptz not null default now()
+);
+
 -- ============ 2. COLUNAS QUE PODEM FALTAR EM BANCOS ANTIGOS ============
 alter table public.agendamentos add column if not exists turma_id uuid;
 alter table public.agendamentos add column if not exists horario_id uuid;
@@ -429,6 +447,58 @@ begin
   return new;
 end $$;
 
+-- Registra uma tentativa de agendamento que falhou.
+-- SECURITY DEFINER: o usuário autenticado grava o log sem policy de INSERT.
+-- O vínculo vem de auth.uid(), nunca de um parâmetro do navegador.
+create or replace function public.registrar_falha_agendamento(
+  p_motivo          text,
+  p_codigo          text default null,
+  p_etapa           text default 'cliente',
+  p_data            date default null,
+  p_horario_rotulo  text default null,
+  p_turma_nome      text default null,
+  p_quantidade      int default null,
+  p_contexto        jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid    uuid := auth.uid();
+  v_nome   text;
+  v_email  text;
+  v_etapa  text := left(coalesce(nullif(trim(p_etapa), ''), 'cliente'), 20);
+  v_codigo text := left(nullif(trim(p_codigo), ''), 40);
+begin
+  if v_uid is null then
+    return;
+  end if;
+
+  select nome, email into v_nome, v_email
+    from public.perfis
+   where id = v_uid;
+
+  if v_email is null then
+    select email into v_email
+      from auth.users
+     where id = v_uid;
+  end if;
+
+  insert into public.tentativas_agendamento (
+    usuario_id, professor_nome, professor_email, data_solicitada,
+    horario_rotulo, turma_nome, quantidade, etapa, codigo, motivo,
+    contexto, user_agent
+  ) values (
+    v_uid, left(v_nome, 200), left(v_email, 200), p_data,
+    left(p_horario_rotulo, 120), left(p_turma_nome, 120),
+    case when p_quantidade is null then null else greatest(0, least(p_quantidade, 9999)) end,
+    v_etapa, v_codigo,
+    left(coalesce(nullif(trim(p_motivo), ''), 'Falha sem descrição'), 500),
+    coalesce(p_contexto, '{}'::jsonb),
+    left(nullif(nullif(current_setting('request.headers', true), '')::json ->> 'user-agent', ''), 300)
+  );
+end $$;
+
 -- Cria o perfil automaticamente no cadastro
 create or replace function public.handle_new_user()
 returns trigger
@@ -514,6 +584,7 @@ alter table public.horarios_aula       enable row level security;
 alter table public.eventos_especiais   enable row level security;
 alter table public.configuracoes_site  enable row level security;
 alter table public.banners             enable row level security;
+alter table public.tentativas_agendamento enable row level security;
 
 -- ---------- perfis ----------
 drop policy if exists "perfil_select_proprio" on public.perfis;
@@ -627,6 +698,23 @@ create policy "banners_admin" on public.banners
   using (public.is_admin())
   with check (public.is_admin());
 
+-- ---------- tentativas de agendamento (log de falhas) ----------
+drop policy if exists "tentativas_admin_ve_todas" on public.tentativas_agendamento;
+create policy "tentativas_admin_ve_todas" on public.tentativas_agendamento
+  for select to authenticated
+  using (public.is_admin());
+
+-- Escrita só pela RPC security definer; ninguém altera o histórico.
+revoke all on public.tentativas_agendamento from anon, authenticated;
+grant select on public.tentativas_agendamento to authenticated;
+
+revoke all on function public.registrar_falha_agendamento(text, text, text, date, text, text, int, jsonb)
+  from public;
+revoke all on function public.registrar_falha_agendamento(text, text, text, date, text, text, int, jsonb)
+  from anon;
+grant execute on function public.registrar_falha_agendamento(text, text, text, date, text, text, int, jsonb)
+  to authenticated;
+
 -- ============ 7. VIEW PÚBLICA (sem dados pessoais) ============
 drop view if exists public.agenda_publica;
 -- security_invoker = false (padrão): a view roda como o dono e ignora o RLS,
@@ -655,6 +743,8 @@ create index if not exists ix_agendamentos_status      on public.agendamentos (s
 create index if not exists ix_horarios_segmento        on public.horarios_aula (segmento, turno, dia_semana, ordem);
 create index if not exists ix_eventos_periodo          on public.eventos_especiais (data_inicio, data_fim);
 create index if not exists ix_chromebooks_carrinho     on public.chromebooks (carrinho_id);
+create index if not exists ix_tentativas_usuario_data  on public.tentativas_agendamento (usuario_id, created_at desc);
+create index if not exists ix_tentativas_created_at    on public.tentativas_agendamento (created_at desc);
 
 -- Unicidade (ignora erro se já houver duplicatas no banco)
 do $$
@@ -710,5 +800,8 @@ create policy "banners_storage_delete" on storage.objects
 -- ============ 10. SEED ============
 insert into public.configuracoes_site (id) values (1)
 on conflict (id) do nothing;
+
+-- PostgREST recarrega o cache e passa a enxergar tabelas/funções novas na hora.
+notify pgrst, 'reload schema';
 
 commit;
