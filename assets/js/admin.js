@@ -307,7 +307,7 @@
     if (!el) return;
 
     if (!data?.length) {
-      el.innerHTML = `<tr><td colspan="5" class="empty">Nenhum usuário.</td></tr>`;
+      el.innerHTML = `<tr><td colspan="6" class="empty">Nenhum usuário.</td></tr>`;
       return;
     }
     el.innerHTML = data
@@ -322,10 +322,12 @@
             <option value="admin" ${u.cargo === "admin" ? "selected" : ""}>Admin</option>
           </select>
         </td>
+        <td>
+          <button class="btn btn-ghost btn-sm" data-log-user="${u.id}" title="Ver falhas de agendamento">&#62;_ Log</button>
+        </td>
         <td>${U.formatDate(u.created_at?.slice(0, 10))}</td>
         <td>
           <div class="row-actions">
-            <button class="btn btn-ghost btn-sm" data-log-user="${u.id}" title="Ver falhas de agendamento">&#62;_ Log</button>
             <button class="btn btn-ghost btn-sm" data-edit-user="${u.id}">Editar</button>
           </div>
         </td>
