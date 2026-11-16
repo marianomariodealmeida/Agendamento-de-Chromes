@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/styles.css" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=20261116-aprovacao" />
 </head>
 <body>
 
@@ -52,7 +52,7 @@
     <!-- ============ FORMULÁRIO ============ -->
     <div class="card">
       <h2 class="card-title">Novo agendamento</h2>
-      <p class="card-sub">Solicite o uso do carrinho de Chromebooks.</p>
+      <p class="card-sub">Agende o uso do carrinho de Chromebooks. A confirmação é automática quando o horário está livre.</p>
 
       <form id="form-agendamento">
         <div class="field">
@@ -92,7 +92,7 @@
 
         <div id="aviso-bloqueio" class="empty" style="display:none"></div>
 
-        <button class="btn btn-primary btn-block" type="submit">Solicitar agendamento</button>
+        <button class="btn btn-primary btn-block" type="submit">Confirmar agendamento</button>
       </form>
     </div>
 
@@ -106,6 +106,21 @@
     </div>
 
   </main>
+
+  <!-- ============ MODAL DE DECISÃO (conflito / antecedência) ============ -->
+  <div class="modal" id="modal-decisao" hidden role="dialog" aria-modal="true" aria-labelledby="modal-decisao-titulo">
+    <div class="modal-panel modal-decisao-panel">
+      <div class="modal-head">
+        <h3 id="modal-decisao-titulo">Horário indisponível</h3>
+        <button class="modal-close" id="modal-decisao-close" aria-label="Fechar">×</button>
+      </div>
+      <div id="modal-decisao-texto" class="modal-text"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="modal-decisao-outro" type="button">Escolher outro horário</button>
+        <button class="btn btn-primary" id="modal-decisao-aprovar" type="button">Pedir aprovação ao admin</button>
+      </div>
+    </div>
+  </div>
 
   <footer class="site-footer">
     <div class="container footer-inner">
@@ -121,7 +136,7 @@
   <script src="assets/js/guard.js"></script>
   <script src="assets/js/site-config.js"></script>
   <script src="assets/js/horarios.js"></script>
-  <script src="assets/js/agendamento.js?v=20261116-log-falhas"></script>
+  <script src="assets/js/agendamento.js?v=20261116-aprovacao"></script>
   <script>
     (async () => {
       try {

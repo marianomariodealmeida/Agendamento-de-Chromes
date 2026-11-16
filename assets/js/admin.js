@@ -821,11 +821,37 @@
 
     el.querySelectorAll("[data-acao]").forEach((btn) =>
       btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const acao = btn.dataset.acao;
+        const item = agendamentosCache.find((a) => a.id === id);
+
+        if (acao === "cancelado") {
+          if (!confirm("Cancelar este agendamento?")) return;
+        }
+
+        // Pedido que veio de "pedir aprovação" pode estar em conflito:
+        // o admin decide se libera a exceção.
+        if (acao === "aprovado" && item?.horario_id) {
+          const { data: conflito } = await db.rpc("conflito_carrinhos", {
+            p_data: String(item.data).slice(0, 10),
+            p_horario_id: item.horario_id,
+            p_ignorar_id: id,
+          });
+          if (
+            conflito &&
+            !confirm(
+              "Este horário já tem os dois carrinhos em uso.\n\nAprovar mesmo assim (exceção)?"
+            )
+          ) {
+            return;
+          }
+        }
+
         btn.disabled = true;
         const { error } = await db
           .from("agendamentos")
-          .update({ status: btn.dataset.acao })
-          .eq("id", btn.dataset.id);
+          .update({ status: acao })
+          .eq("id", id);
         if (error) {
           btn.disabled = false;
           return U.toast(error.message, "error");

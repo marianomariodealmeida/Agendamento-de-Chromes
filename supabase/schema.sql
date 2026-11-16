@@ -289,7 +289,11 @@ language plpgsql security definer set search_path = public
 as $$
 begin
   if new.status = 'aprovado' and old.status is distinct from 'aprovado' then
-    new.aprovado_por = auth.uid();
+    if public.is_admin() then
+      new.aprovado_por = auth.uid();
+    else
+      new.aprovado_por = null;
+    end if;
     new.aprovado_em = now();
   elsif new.status <> 'aprovado' then
     new.aprovado_por = null;
@@ -367,6 +371,9 @@ as $$
 $$;
 
 -- Trava atômica: conflito de carrinhos, capacidade e eventos.
+-- INSERT 'aprovado' = agendamento automático (valida tudo).
+-- INSERT 'pendente' = pedido de exceção ao admin (só eventos e capacidade).
+-- UPDATE para 'aprovado' = aprovação manual do admin (decisão explícita).
 create or replace function public.valida_agendamento()
 returns trigger
 language plpgsql security definer set search_path = public
@@ -389,7 +396,7 @@ begin
   );
 
   if v_inserindo then
-    -- Evento especial na data
+    -- Evento especial na data (bloqueio rígido, sem pedido de aprovação)
     select titulo into v_evento
       from public.eventos_especiais
      where data_inicio <= new.data
@@ -401,22 +408,7 @@ begin
       raise exception 'Data bloqueada: %', v_evento using errcode = 'P0002';
     end if;
 
-    -- Antecedência mínima
-    select hora_inicio into v_inicio
-      from public.horarios_aula where id = new.horario_id;
-
-    if v_inicio is not null then
-      select coalesce(bloqueio_horas, 0) into v_horas
-        from public.configuracoes_site where id = 1;
-      v_horas := coalesce(v_horas, 0);
-
-      if ((new.data + v_inicio) at time zone 'America/Sao_Paulo')
-           < (now() + make_interval(hours => v_horas)) then
-        raise exception 'Antecedência mínima de %h.', v_horas using errcode = 'P0003';
-      end if;
-    end if;
-
-    -- Capacidade real do carrinho
+    -- Capacidade real do carrinho (limite físico, sempre vale)
     if new.carrinho_id is not null then
       select count(*) into v_capacidade
         from public.chromebooks
@@ -427,13 +419,29 @@ begin
           v_capacidade using errcode = 'P0001';
       end if;
     end if;
+
+    -- Antecedência mínima: só no agendamento automático.
+    if new.status = 'aprovado' then
+      select hora_inicio into v_inicio
+        from public.horarios_aula where id = new.horario_id;
+
+      if v_inicio is not null then
+        select coalesce(bloqueio_horas, 0) into v_horas
+          from public.configuracoes_site where id = 1;
+        v_horas := coalesce(v_horas, 0);
+
+        if ((new.data + v_inicio) at time zone 'America/Sao_Paulo')
+             < (now() + make_interval(hours => v_horas)) then
+          raise exception 'Antecedência mínima de %h.', v_horas using errcode = 'P0003';
+        end if;
+      end if;
+    end if;
   end if;
 
-  -- Conflito de carrinhos (também na aprovação)
+  -- Conflito de carrinhos: barra o agendamento automático.
+  -- A aprovação manual do admin não é revalidada.
   if v_inserindo then
-    v_checar := true;
-  elsif new.status = 'aprovado' and old.status is distinct from 'aprovado' then
-    v_checar := true;
+    v_checar := (new.status = 'aprovado');
   else
     v_checar := false;
   end if;

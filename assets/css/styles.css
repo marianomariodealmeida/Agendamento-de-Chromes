@@ -246,6 +246,18 @@ main { padding-block: 2rem 3rem; }
 }
 .modal-close:hover { background: var(--danger-soft); color: var(--danger); }
 
+/* Modal de decisão do agendamento (conflito / antecedência) */
+.modal-text { color: var(--muted); margin: 0; line-height: 1.6; }
+.modal-text strong { color: var(--text); }
+.modal-actions {
+  display: flex; gap: .6rem; justify-content: flex-end;
+  flex-wrap: wrap; margin-top: 1.35rem;
+}
+@media (max-width: 520px) {
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { width: 100%; }
+}
+
 /* ============ ROW ACTIONS ============ */
 .row-actions { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
 

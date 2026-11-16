@@ -114,10 +114,18 @@ Regras aplicadas por trigger (não só pelo front-end):
 
 - professor **não** altera `cargo`;
 - professor **não** aprova o próprio pedido (só cancela);
+- **agendamento automático**: o professor cria o pedido já como `aprovado`; a
+  trigger valida antecedência, eventos e conflito antes de aceitar;
+- se o horário conflita (2 carrinhos já em uso) ou está dentro do bloqueio de
+  antecedência, o site oferece **pedir aprovação** (grava `pendente`) ou
+  **escolher outro horário**; o `pendente` só passa por eventos e capacidade;
+- a aprovação manual do admin (`pendente` → `aprovado`) é uma decisão
+  explícita e libera a exceção;
 - conflito de carrinhos é resolvido com `pg_advisory_xact_lock` (atômico);
 - capacidade validada contra `chromebooks.status = 'disponivel'`;
 - eventos especiais e antecedência mínima valem também para quem chamar a API direto;
-- `aprovado_por` / `aprovado_em` registram a auditoria.
+- `aprovado_por` / `aprovado_em` registram a auditoria (aprovação automática
+  grava apenas `aprovado_em`).
 
 A view `agenda_publica` expõe `data`, `periodo`, `horario_id`,
 `quantidade`, `status`, `professor_nome` e `turma_nome` — sem sala ou

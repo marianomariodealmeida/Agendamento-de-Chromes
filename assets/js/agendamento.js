@@ -33,6 +33,12 @@
     contraturno:"Contraturno",
   };
 
+  const STATUS_LABEL = {
+    pendente:  "Pendente",
+    aprovado:  "Confirmado",
+    cancelado: "Cancelado",
+  };
+
   /* ============================================================ LOG DE FALHAS */
   function nomeTurmaSelecionada() {
     const opt = selTurma?.options?.[selTurma.selectedIndex];
@@ -158,7 +164,89 @@
     selHorario.disabled = false;
   }
 
+  /* ============================================================ MODAL DE DECISÃO */
+  const modalDecisao = {
+    root:           document.getElementById("modal-decisao"),
+    titulo:         document.getElementById("modal-decisao-titulo"),
+    texto:          document.getElementById("modal-decisao-texto"),
+    fechar:         document.getElementById("modal-decisao-close"),
+    outroHorario:   document.getElementById("modal-decisao-outro"),
+    pedirAprovacao: document.getElementById("modal-decisao-aprovar"),
+  };
+
+  let acaoAprovacao = null;
+  let focoAnterior  = null;
+
+  function abrirDecisao({ titulo, mensagem, onAprovar }) {
+    // Página com HTML antigo em cache: cai no confirm nativo.
+    if (!modalDecisao.root) {
+      const ok = confirm(
+        `${titulo}\n\n${mensagem.replace(/<[^>]+>/g, " ")}\n\n` +
+          `OK = pedir aprovação ao admin\nCancelar = escolher outro horário`
+      );
+      if (ok) return onAprovar();
+      return limparFormulario();
+    }
+
+    acaoAprovacao = onAprovar;
+    focoAnterior  = document.activeElement;
+
+    modalDecisao.titulo.textContent = titulo;
+    modalDecisao.texto.innerHTML = mensagem;
+    modalDecisao.pedirAprovacao.disabled = false;
+    modalDecisao.outroHorario.disabled = false;
+    modalDecisao.root.hidden = false;
+    modalDecisao.pedirAprovacao.focus();
+  }
+
+  function fecharDecisao({ devolverFoco = true } = {}) {
+    if (!modalDecisao.root) return;
+    modalDecisao.root.hidden = true;
+    acaoAprovacao = null;
+    if (devolverFoco && focoAnterior?.focus) focoAnterior.focus();
+  }
+
+  if (modalDecisao.root) {
+    modalDecisao.fechar?.addEventListener("click", () => fecharDecisao());
+    modalDecisao.outroHorario?.addEventListener("click", () => {
+      fecharDecisao({ devolverFoco: false });
+      limparFormulario();
+    });
+    modalDecisao.pedirAprovacao?.addEventListener("click", async () => {
+      const acao = acaoAprovacao;
+      fecharDecisao();
+      if (acao) await acao();
+    });
+    modalDecisao.root.addEventListener("click", (ev) => {
+      if (ev.target === modalDecisao.root) fecharDecisao();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !modalDecisao.root.hidden) fecharDecisao();
+    });
+  }
+
+  /** Limpa o formulário para o usuário escolher outro horário. */
+  function limparFormulario() {
+    if (!form) return;
+    form.reset();
+    form.data.value = U.toISODate(new Date());
+    if (selTurma) selTurma.value = "";
+    if (selHorario) {
+      selHorario.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
+      selHorario.disabled = true;
+    }
+    if (avisoEl) {
+      avisoEl.style.display = "none";
+      avisoEl.textContent = "";
+    }
+    form.data.focus?.();
+  }
+
   /* ============================================================ CRIAÇÃO */
+  const BTN_TEXTO      = "Confirmar agendamento";
+  const STATUS_AUTO    = "aprovado";
+  const STATUS_PENDENTE = "pendente";
+
   async function criar(e) {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
@@ -209,30 +297,88 @@
       return U.toast("Quantidade deve ser entre 1 e 40.", "error");
     }
 
-    /* -------- Bloqueio antecipado -------- */
-    const horasBloq  = await Horarios.bloqueioHoras();
-    const horarioOpt = selHorario.options[selHorario.selectedIndex];
-    const horaInicio = horarioOpt?.dataset.inicio || "00:00";
-    const dataHoraAgendada = new Date(`${dataStr}T${horaInicio}:00`);
-    const agora = new Date();
-    const diffHoras = (dataHoraAgendada - agora) / 36e5;
+    /* -------- Envio (auto-aprovado ou pedido de aprovação) -------- */
+    async function enviar(payload, { pendente }) {
+      btn.disabled = true;
+      btn.textContent = pendente ? "Enviando pedido..." : "Agendando...";
 
-    if (diffHoras < horasBloq) {
-      const msg =
-        `Antecedência mínima de ${horasBloq}h. ` +
-        `Escolha um horário a partir de ` +
-        new Date(agora.getTime() + horasBloq * 36e5).toLocaleString("pt-BR");
-      falha("cliente", "BLOQUEIO_ANTECEDENCIA", msg, {
-        horas_bloqueio: horasBloq,
-        horas_de_antecedencia: Math.round(diffHoras * 100) / 100,
-      });
-      if (avisoEl) { avisoEl.style.display = "block"; avisoEl.textContent = "⚠️ " + msg; }
-      return U.toast(msg, "error", 5500);
-    } else if (avisoEl) {
-      avisoEl.style.display = "none";
+      const { error } = await db.from("agendamentos").insert(payload);
+
+      btn.disabled = false;
+      btn.textContent = BTN_TEXTO;
+
+      if (error) {
+        // Corrida: o banco recusou a confirmação automática. Oferece aprovação.
+        if (!pendente && (error.code === "P0003" || error.code === "P0004")) {
+          falha("servidor", error.code, error.message, { sugestao: "pedir_aprovacao" });
+          return abrirDecisao({
+            titulo: error.code === "P0004" ? "Horário em conflito" : "Fora do prazo mínimo",
+            mensagem:
+              `<p>${U.escapeHtml(error.message)}</p>` +
+              `<p>O que você prefere fazer?</p>`,
+            onAprovar: () => enviar(novoAgendamento(STATUS_PENDENTE), { pendente: true }),
+          });
+        }
+
+        let msg;
+        let ms = 6500;
+        switch (error.code) {
+          case "P0001":
+            msg = "Este horário já está cheio. Escolha outro.";
+            ms = 5500;
+            break;
+          case "P0002":
+            msg = error.message;   // evento especial
+            break;
+          case "P0003":
+            msg = error.message;   // antecedência mínima
+            break;
+          case "P0004":
+            msg = error.message;   // 2 carrinhos em uso
+            break;
+          default:
+            msg = "Erro: " + error.message;
+            ms = 6000;
+        }
+
+        falha("servidor", error.code || "ERRO_SERVIDOR", error.message || msg, {
+          detalhes: error.details || null,
+          hint: error.hint || null,
+          mensagem_exibida: msg,
+          pedido_aprovacao: pendente,
+        });
+
+        return U.toast(
+          pendente ? `Não foi possível pedir aprovação: ${msg}` : msg,
+          "error",
+          ms
+        );
+      }
+
+      if (pendente) {
+        /* -------- Pedido de aprovação enviado -------- */
+        U.toast("Pedido enviado! Aguardando aprovação do admin.", "success", 5000);
+        limparFormulario();
+      } else {
+        /* -------- Agendamento confirmado automaticamente -------- */
+        U.toast("Agendamento confirmado!", "success");
+        form.reset();
+        // Mantém a data e a turma para facilitar agendar vários horários no mesmo dia.
+        form.data.value = dataStr;
+        if (selTurma && turmaId) {
+          selTurma.value = turmaId;
+          await aoTrocarTurma();
+        } else if (selHorario) {
+          selHorario.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
+          selHorario.disabled = true;
+        }
+        if (avisoEl) avisoEl.style.display = "none";
+      }
+
+      await carregar();
     }
 
-    /* -------- Eventos especiais -------- */
+    /* -------- Eventos especiais (bloqueio rígido) -------- */
     const eventos = await Horarios.eventosDoDia(dataStr, null);
     if (eventos.length) {
       const ev = eventos[0];
@@ -247,96 +393,84 @@
       avisoEl.style.display = "none";
     }
 
-    /* -------- Conflito de carrinhos (sobreposição real) -------- */
+    /* -------- Antecedência e conflito → pedir aprovação ou trocar horário -------- */
+    const horasBloq  = await Horarios.bloqueioHoras();
+    const horarioOpt = selHorario.options[selHorario.selectedIndex];
+    const horaInicio = horarioOpt?.dataset.inicio || "00:00";
+    const dataHoraAgendada = new Date(`${dataStr}T${horaInicio}:00`);
+    const agora = new Date();
+    const diffHoras = (dataHoraAgendada - agora) / 36e5;
+    const faltaAntecedencia = diffHoras < horasBloq;
+
     const { data: conflito, error: conflitoErr } = await db.rpc(
       "verificar_conflito_carrinhos",
       { p_data: dataStr, p_horario_id: horarioId }
     );
+    if (conflitoErr) console.warn("[agendamento] rpc conflito:", conflitoErr.message);
 
-    if (conflitoErr) {
-      console.warn("[agendamento] rpc conflito:", conflitoErr.message);
-    } else if (conflito) {
-      falha(
-        "cliente",
-        "P0004",
-        "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso."
-      );
-      return U.toast(
-        "Não é possível agendar: em algum momento desse horário os dois carrinhos já estão em uso.",
-        "error",
-        6500
-      );
+    const turnoHorario = horarioOpt?.dataset.turno || "";
+
+    /** Payload do agendamento, com o status decidido pelo usuário. */
+    function novoAgendamento(status) {
+      return {
+        usuario_id: session.user.id,
+        professor_nome: perfil?.nome || session.user.email,
+        data: dataStr,
+        periodo: turnoHorario || "aula",
+        quantidade,
+        sala,
+        observacoes,
+        turma_id: turmaId,
+        horario_id: horarioId,
+        status,
+      };
     }
 
-    /* -------- Monta payload -------- */
-    const turnoHorario = horarioOpt?.dataset.turno || "";
-    const payload = {
-      usuario_id: session.user.id,
-      professor_nome: perfil?.nome || session.user.email,
-      data: dataStr,
-      periodo: turnoHorario || "aula",
-      quantidade,
-      sala,
-      observacoes,
-      turma_id: turmaId,
-      horario_id: horarioId,
-      status: "pendente",
-    };
+    if (faltaAntecedencia || conflito) {
+      const motivosHtml = [];
 
-    /* -------- Insert -------- */
-    btn.disabled = true;
-    btn.textContent = "Enviando...";
-
-    const { error } = await db.from("agendamentos").insert(payload);
-
-    btn.disabled = false;
-    btn.textContent = "Solicitar agendamento";
-
-    if (error) {
-      let msg;
-      let ms = 6500;
-      switch (error.code) {
-        case "P0001":
-          msg = "Este horário já está cheio. Escolha outro.";
-          ms = 5500;
-          break;
-        case "P0002":
-          msg = error.message;   // evento especial
-          break;
-        case "P0003":
-          msg = error.message;   // antecedência mínima
-          break;
-        case "P0004":
-          msg = error.message;   // 2 carrinhos em uso
-          break;
-        default:
-          msg = "Erro: " + error.message;
-          ms = 6000;
+      if (conflito) {
+        motivosHtml.push(
+          "<strong>Já existem agendamentos neste horário</strong> ocupando os dois carrinhos de Chromebooks."
+        );
+      }
+      if (faltaAntecedencia) {
+        const limite = new Date(agora.getTime() + horasBloq * 36e5);
+        motivosHtml.push(
+          `O pedido está dentro do bloqueio de antecedência: são necessárias pelo menos ` +
+            `<strong>${horasBloq}h</strong> (a partir de ` +
+            U.escapeHtml(limite.toLocaleString("pt-BR")) + ")."
+        );
       }
 
-      falha("servidor", error.code || "ERRO_SERVIDOR", error.message || msg, {
-        detalhes: error.details || null,
-        hint: error.hint || null,
-        mensagem_exibida: msg,
+      falha(
+        "cliente",
+        conflito ? "P0004" : "BLOQUEIO_ANTECEDENCIA",
+        motivosHtml.join(" ").replace(/<[^>]+>/g, ""),
+        {
+          horas_bloqueio: horasBloq,
+          horas_de_antecedencia: Math.round(diffHoras * 100) / 100,
+          conflito: Boolean(conflito),
+          sugestao: "pedir_aprovacao",
+        }
+      );
+
+      if (avisoEl) {
+        avisoEl.style.display = "block";
+        avisoEl.textContent =
+          "⚠️ Horário indisponível para confirmação automática. Escolha outro horário ou peça aprovação.";
+      }
+
+      return abrirDecisao({
+        titulo: conflito ? "Horário em conflito" : "Fora do prazo mínimo",
+        mensagem:
+          `<p>${motivosHtml.join("</p><p>")}</p>` +
+          `<p>O que você prefere fazer?</p>`,
+        onAprovar: () => enviar(novoAgendamento(STATUS_PENDENTE), { pendente: true }),
       });
-      return U.toast(msg, "error", ms);
     }
 
-    /* -------- Sucesso -------- */
-    U.toast("Agendamento solicitado!", "success");
-    form.reset();
-    // Mantém a data e a turma para facilitar agendar vários horários no mesmo dia.
-    form.data.value = dataStr;
-    if (selTurma && turmaId) {
-      selTurma.value = turmaId;
-      await aoTrocarTurma();
-    } else if (selHorario) {
-      selHorario.innerHTML = `<option value="">Selecione a turma primeiro...</option>`;
-      selHorario.disabled = true;
-    }
-    if (avisoEl) avisoEl.style.display = "none";
-
-    await carregar();
+    return enviar(novoAgendamento(STATUS_AUTO), { pendente: false });
   }
 
   /* ============================================================ LISTAGEM */
@@ -383,13 +517,19 @@
     ].filter(Boolean).join(" • ");
 
     const podeCancelar = it.status !== "cancelado";
+    const statusLabel = STATUS_LABEL[it.status] || it.status;
 
     return `
       <div class="list-item">
-        <span class="badge badge-${U.escapeHtml(it.status)}">${U.escapeHtml(it.status)}</span>
+        <span class="badge badge-${U.escapeHtml(it.status)}">${U.escapeHtml(statusLabel)}</span>
         <div class="grow">
           <div class="title">${U.formatDate(it.data)} — ${horarioTxt}</div>
           <div class="meta">${meta}</div>
+          ${
+            it.status === "pendente"
+              ? `<div class="meta" style="margin-top:.2rem">⏳ Aguardando aprovação do administrador.</div>`
+              : ""
+          }
           ${
             it.observacoes
               ? `<div class="meta" style="margin-top:.2rem;font-style:italic">"${U.escapeHtml(it.observacoes)}"</div>`
