@@ -341,6 +341,11 @@
             ms = 6000;
         }
 
+        if (pendente && (error.code === "P0003" || error.code === "P0004")) {
+          // Acontece enquanto a atualização do banco não for aplicada.
+          msg = "O pedido de aprovação ainda não está habilitado no servidor. Avise o administrador.";
+        }
+
         falha("servidor", error.code || "ERRO_SERVIDOR", error.message || msg, {
           detalhes: error.details || null,
           hint: error.hint || null,
