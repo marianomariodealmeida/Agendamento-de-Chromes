@@ -19,7 +19,7 @@
   const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const PERIODO_DOT = { manha: "dot-manha", tarde: "dot-tarde", noite: "dot-noite" };
 
-  const state = { ref: new Date(), items: [], loaded: false };
+  const state = { ref: new Date(), items: [], horarios: {}, loaded: false };
   let lastFocused = null;
 
   function monthRange(ref) {
@@ -35,12 +35,21 @@
     const { gridStart, gridEnd } = monthRange(state.ref);
 
     // View pública: não expõe nome de professor, sala nem observações.
-    const { data, error } = await db
-      .from("agenda_publica")
-      .select("data, periodo, quantidade, status")
-      .gte("data", U.toISODate(gridStart))
-      .lte("data", U.toISODate(gridEnd))
-      .order("data", { ascending: true });
+    // O horário de aula é buscado à parte para exibir os detalhes do turno.
+    const [agendaRes, horariosRes] = await Promise.all([
+      db
+        .from("agenda_publica")
+        .select("data, periodo, horario_id, status")
+        .gte("data", U.toISODate(gridStart))
+        .lte("data", U.toISODate(gridEnd))
+        .order("data", { ascending: true }),
+      db
+        .from("horarios_aula")
+        .select("id, rotulo, hora_inicio, hora_fim")
+        .order("hora_inicio", { ascending: true }),
+    ]);
+
+    const { data, error } = agendaRes;
 
     if (error) {
       console.error("[calendar]", error);
@@ -50,8 +59,26 @@
       state.items = data || [];
     }
 
+    if (horariosRes.error) {
+      console.warn("[calendar] horários:", horariosRes.error.message);
+      state.horarios = {};
+    } else {
+      state.horarios = Object.fromEntries(
+        (horariosRes.data || []).map((h) => [h.id, h])
+      );
+    }
+
     state.loaded = true;
     render();
+  }
+
+  function rotuloHorario(item) {
+    const h = state.horarios[item.horario_id];
+    if (!h) return U.periodoLabel(item.periodo) || "Horário não informado";
+
+    const inicio = String(h.hora_inicio || "").slice(0, 5);
+    const fim = String(h.hora_fim || "").slice(0, 5);
+    return `${h.rotulo} (${inicio} – ${fim})`;
   }
 
   function render() {
@@ -140,7 +167,7 @@
             <div class="list-item">
               <span class="badge badge-info">${U.escapeHtml(U.periodoLabel(it.periodo))}</span>
               <div class="grow">
-                <div class="title">${U.escapeHtml(String(it.quantidade || 1))} Chromebook(s)</div>
+                <div class="title">${U.escapeHtml(rotuloHorario(it))}</div>
                 <div class="meta">${
                   it.status === "pendente" ? "Aguardando aprovação" : "Confirmado"
                 }</div>
